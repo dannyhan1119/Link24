@@ -1,0 +1,27 @@
+# Godot editor cache and generated imports
+.godot/
+
+# Exported builds and Android Gradle output
+/build/
+/android/build/
+/android/.build_version
+*.apk
+*.aab
+
+# Local credentials and signing keys
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key
+
+# IDE and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

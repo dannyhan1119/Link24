@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <defs>
+    <style>
+      .bg { fill: #edf8fc; }
+      .panel { fill: #ffffff; stroke: #82cdea; stroke-width: 5; }
+      .tile { fill: #ffffff; stroke: #b8ddea; stroke-width: 4; }
+      .active { fill: #e5fbff; stroke: #28c8e8; stroke-width: 8; }
+      .line { fill: none; stroke: #28c8e8; stroke-width: 30; stroke-linecap: round; stroke-linejoin: round; }
+      .primary { fill: #18304f; font-family: sans-serif; font-weight: 700; text-anchor: middle; }
+      .secondary { fill: #66809c; font-family: sans-serif; font-weight: 500; text-anchor: middle; }
+      .label { fill: #1b7798; font-family: sans-serif; font-weight: 700; text-anchor: middle; }
+      .note { fill: #42657c; font-family: sans-serif; font-size: 26px; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1080" height="1920"/>
+
+  <rect class="panel" x="55" y="75" rx="36" ry="36" width="230" height="94"/>
+  <text class="label" x="170" y="136" font-size="42">第 7 关</text>
+
+  <rect class="panel" x="370" y="75" rx="36" ry="36" width="340" height="94"/>
+  <text class="label" x="540" y="136" font-size="42">完成 2 / 4</text>
+
+  <circle class="panel" cx="955" cy="122" r="47"/>
+  <text class="label" x="955" y="137" font-size="42">⚙</text>
+
+  <circle class="panel" cx="540" cy="342" r="145"/>
+  <text class="primary" x="540" y="335" font-size="86">17 / 24</text>
+  <text class="secondary" x="540" y="399" font-size="38">还差 7</text>
+
+  <text class="note" x="66" y="540">棋盘区域：5×5，自适应缩放，路径在格子下方</text>
+  <rect x="55" y="570" width="970" height="970" rx="70" fill="#fff8e8" stroke="#f0dcae" stroke-width="5"/>
+
+  <path class="line" d="M 165 1015 L 165 1200 L 350 1200"/>
+
+  <g>
+    <rect class="tile" x="90" y="605" width="150" height="150" rx="30"/>
+    <rect class="tile" x="275" y="605" width="150" height="150" rx="30"/>
+    <rect class="tile" x="460" y="605" width="150" height="150" rx="30"/>
+    <rect class="tile" x="645" y="605" width="150" height="150" rx="30"/>
+    <rect class="tile" x="830" y="605" width="150" height="150" rx="30"/>
+
+    <rect class="tile" x="90" y="790" width="150" height="150" rx="30"/>
+    <rect class="tile" x="275" y="790" width="150" height="150" rx="30"/>
+    <rect class="tile" x="460" y="790" width="150" height="150" rx="30"/>
+    <rect x="645" y="790" width="150" height="150" rx="30" fill="#dceaf0"/>
+    <rect class="tile" x="830" y="790" width="150" height="150" rx="30"/>
+
+    <rect class="active" x="90" y="975" width="150" height="150" rx="30"/>
+    <rect class="tile" x="275" y="975" width="150" height="150" rx="30"/>
+    <rect class="tile" x="460" y="975" width="150" height="150" rx="30"/>
+    <rect class="tile" x="645" y="975" width="150" height="150" rx="30"/>
+    <rect x="830" y="975" width="150" height="150" rx="30" fill="#dceaf0"/>
+
+    <rect class="active" x="90" y="1160" width="150" height="150" rx="30"/>
+    <rect class="active" x="275" y="1160" width="150" height="150" rx="30"/>
+    <rect class="tile" x="460" y="1160" width="150" height="150" rx="30"/>
+    <rect class="tile" x="645" y="1160" width="150" height="150" rx="30"/>
+    <rect class="tile" x="830" y="1160" width="150" height="150" rx="30"/>
+
+    <rect class="tile" x="90" y="1345" width="150" height="150" rx="30"/>
+    <rect class="tile" x="275" y="1345" width="150" height="150" rx="30"/>
+    <rect class="tile" x="460" y="1345" width="150" height="150" rx="30"/>
+    <rect class="tile" x="645" y="1345" width="150" height="150" rx="30"/>
+    <rect class="tile" x="830" y="1345" width="150" height="150" rx="30"/>
+  </g>
+
+  <g class="primary" font-size="66">
+    <text x="165" y="705">3</text><text x="350" y="705">8</text><text x="535" y="705">2</text><text x="720" y="705">4</text><text x="905" y="705">7</text>
+    <text x="165" y="890">6</text><text x="350" y="890">1</text><text x="535" y="890">9</text><text x="905" y="890">3</text>
+    <text x="165" y="1075">6</text><text x="350" y="1075">2</text><text x="535" y="1075">6</text><text x="720" y="1075">8</text>
+    <text x="165" y="1260">5</text><text x="350" y="1260">6</text><text x="535" y="1260">4</text><text x="720" y="1260">2</text><text x="905" y="1260">9</text>
+    <text x="165" y="1445">7</text><text x="350" y="1445">3</text><text x="535" y="1445">5</text><text x="720" y="1445">1</text><text x="905" y="1445">2</text>
+  </g>
+
+  <rect class="panel" x="140" y="1580" rx="42" ry="42" width="800" height="105"/>
+  <text class="primary" x="540" y="1650" font-size="52">6 + 5 + 6 = 17</text>
+
+  <circle class="panel" cx="285" cy="1792" r="88"/>
+  <circle class="panel" cx="540" cy="1792" r="88"/>
+  <circle class="panel" cx="795" cy="1792" r="88"/>
+  <text class="label" x="285" y="1810" font-size="54">↻</text>
+  <text class="label" x="540" y="1810" font-size="54">↶</text>
+  <text class="label" x="795" y="1810" font-size="54">?</text>
+</svg>

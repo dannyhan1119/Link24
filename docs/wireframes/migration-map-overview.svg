@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs>
+    <style>
+      .canvas { fill: #f5fbfd; }
+      .map { fill: #f8e8c1; stroke: #cdb27c; stroke-width: 4; }
+      .grid { stroke: #d8c49a; stroke-width: 1.5; }
+      .main { fill: none; stroke: #77c879; stroke-width: 52; stroke-linecap: round; stroke-linejoin: round; }
+      .branch { fill: none; stroke: #9bd997; stroke-width: 38; stroke-linecap: round; stroke-linejoin: round; }
+      .candidate { fill: none; stroke: #2fc9df; stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
+      .fog { fill: #ffffff; opacity: .68; stroke: #cddde4; stroke-width: 3; stroke-dasharray: 12 10; }
+      .rock { fill: #a89473; stroke: #79694f; stroke-width: 3; }
+      .water { fill: #58c9e8; stroke: #ffffff; stroke-width: 6; }
+      .oasis { fill: #74d48b; stroke: #ffffff; stroke-width: 8; }
+      .panel { fill: #ffffff; stroke: #91cfe4; stroke-width: 4; }
+      .title { fill: #173955; font-family: sans-serif; font-weight: 700; text-anchor: middle; }
+      .text { fill: #315e79; font-family: sans-serif; font-weight: 600; }
+      .small { fill: #55738a; font-family: sans-serif; font-size: 23px; }
+    </style>
+    <pattern id="biggrid" width="70" height="70" patternUnits="userSpaceOnUse">
+      <path d="M70 0 H0 V70" fill="none" class="grid"/>
+    </pattern>
+  </defs>
+
+  <rect class="canvas" width="1600" height="1000"/>
+  <text class="title" x="800" y="55" font-size="38">12×18 大地图逻辑线框</text>
+
+  <rect class="map" x="55" y="90" width="1260" height="840" rx="36"/>
+  <rect x="55" y="90" width="1260" height="840" rx="36" fill="url(#biggrid)"/>
+
+  <path class="main" d="M125 845 L265 845 L265 705 L405 705 L405 565 L545 565 L545 425 L685 425 L685 285 L825 285 L965 285 L1105 215 L1245 145"/>
+  <path class="branch" d="M405 705 L545 775 L685 775 L755 845"/>
+  <path class="branch" d="M545 565 L685 635 L825 635 L895 565"/>
+  <path class="branch" d="M685 425 L825 495 L965 495"/>
+  <path class="candidate" d="M965 285 L1035 355 L1105 355 L1175 285"/>
+
+  <circle class="oasis" cx="125" cy="845" r="58"/>
+  <text class="title" x="125" y="853" font-size="25">起点</text>
+
+  <circle class="oasis" cx="1245" cy="145" r="62"/>
+  <text class="title" x="1245" y="153" font-size="25">终点</text>
+
+  <circle class="water" cx="685" cy="775" r="30"/>
+  <text class="title" x="685" y="783" font-size="22">水</text>
+
+  <circle cx="825" cy="635" r="29" fill="#ffca62" stroke="#ffffff" stroke-width="6"/>
+  <text class="title" x="825" y="643" font-size="21">伙伴</text>
+
+  <circle cx="825" cy="285" r="28" fill="#f6a76c" stroke="#ffffff" stroke-width="6"/>
+  <text class="title" x="825" y="293" font-size="21">营地</text>
+
+  <g>
+    <rect class="rock" x="320" y="145" width="70" height="70" rx="22"/>
+    <rect class="rock" x="390" y="145" width="70" height="70" rx="22"/>
+    <rect class="rock" x="460" y="145" width="70" height="70" rx="22"/>
+    <rect class="rock" x="740" y="565" width="70" height="70" rx="22"/>
+    <rect class="rock" x="880" y="705" width="70" height="70" rx="22"/>
+    <rect class="rock" x="950" y="705" width="70" height="70" rx="22"/>
+  </g>
+
+  <path class="fog" d="M55 90 H1315 V270 C1190 235 1080 280 980 245 C850 200 735 270 620 220 C470 155 300 260 55 205 Z"/>
+  <path class="fog" d="M970 430 C1130 370 1315 450 1315 670 C1190 620 1080 680 980 610 Z"/>
+
+  <g>
+    <circle cx="965" cy="285" r="20" fill="#ffbf56" stroke="#ffffff" stroke-width="4"/>
+    <circle cx="995" cy="285" r="20" fill="#9ab2c4" stroke="#ffffff" stroke-width="4"/>
+    <circle cx="1025" cy="285" r="20" fill="#e98567" stroke="#ffffff" stroke-width="4"/>
+  </g>
+
+  <rect class="panel" x="1345" y="90" width="210" height="470" rx="30"/>
+  <text class="title" x="1450" y="135" font-size="28">图例</text>
+
+  <line x1="1375" y1="190" x2="1435" y2="190" class="main"/>
+  <text class="small" x="1460" y="198">已开道路</text>
+
+  <line x1="1375" y1="250" x2="1435" y2="250" class="branch"/>
+  <text class="small" x="1460" y="258">可选支路</text>
+
+  <line x1="1375" y1="310" x2="1435" y2="310" class="candidate"/>
+  <text class="small" x="1460" y="318">当前24路径</text>
+
+  <circle class="water" cx="1405" cy="370" r="23"/>
+  <text class="small" x="1460" y="378">水塘目标</text>
+
+  <circle cx="1405" cy="430" r="23" fill="#ffca62" stroke="#ffffff" stroke-width="4"/>
+  <text class="small" x="1460" y="438">迷路伙伴</text>
+
+  <rect class="rock" x="1382" y="474" width="46" height="46" rx="14"/>
+  <text class="small" x="1460" y="507">岩石障碍</text>
+
+  <rect class="panel" x="1345" y="590" width="210" height="340" rx="30"/>
+  <text class="title" x="1450" y="635" font-size="28">地图节奏</text>
+  <text class="small" x="1370" y="690">1. 起点教学段</text>
+  <text class="small" x="1370" y="735">2. 首次分叉</text>
+  <text class="small" x="1370" y="780">3. 伙伴支路</text>
+  <text class="small" x="1370" y="825">4. 营地检查点</text>
+  <text class="small" x="1370" y="870">5. 终点冲刺段</text>
+
+  <text class="small" x="70" y="970">逻辑规则：新路径首格必须邻接起点连通路网；道路可分叉和汇合；青色段表示当前正在选择的 24 路径。</text>
+</svg>
+
