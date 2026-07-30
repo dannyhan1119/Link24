@@ -18,6 +18,15 @@ func _initialize() -> void:
 	_expect(not map_view.dead_end, "playable map does not start in a dead end")
 	_expect(map_view.tutorial_step == 0, "first playable map starts the inline tutorial")
 	_expect(map_view.board.days == 0, "playable map starts at day zero")
+	map_view.show_hint()
+	_expect(map_view.hint_stage == 1, "first hint only reveals a frontier")
+	_expect(map_view.hint_path.size() == 1, "compass hint does not expose the answer")
+	map_view.show_hint()
+	_expect(map_view.hint_stage == 2, "second hint reveals the opening direction")
+	_expect(map_view.hint_path.size() == 2, "direction hint reveals two cells")
+	map_view.show_hint()
+	_expect(map_view.hint_stage == 3, "third hint reaches the complete-answer tier")
+	_expect(map_view.hint_path.size() >= 2, "complete hint retains a usable path")
 	var desert_rects := map_view._desert_background_rects()
 	_expect(desert_rects.size() == 3, "desert art extends above and below the board")
 	_expect(desert_rects[0].end.y == desert_rects[1].position.y, "upper desert art meets the board")
@@ -31,6 +40,8 @@ func _initialize() -> void:
 	_expect(map_view.board.days == 1, "opening a path advances one day")
 	_expect(map_view.tutorial_step == 2, "tutorial advances after the first opened road")
 	_expect(map_view.previous_board != null, "opening a path stores one undo snapshot")
+	_expect(map_view.undo_stack.size() == 1, "opening pushes the first multi-step undo state")
+	_expect(map_view.hint_stage == 0, "opening a road resets progressive hint disclosure")
 	_expect(map_view.recent_open_path.size() == 3, "opening keeps the three changed cells for animation")
 	_expect(
 		map_view.recent_open_values.size() == map_view.recent_open_path.size(),
@@ -58,10 +69,19 @@ func _initialize() -> void:
 	_expect(map_view.board.days == 0, "undo restores the previous day count")
 	_expect(map_view.tutorial_step == 0, "undo restores the matching tutorial step")
 	_expect(map_view.previous_board == null, "undo consumes the stored snapshot")
+	_expect(map_view.undo_stack.is_empty(), "undo stack is empty after returning to the initial state")
 	_expect(map_view.board.has_valid_path(), "undo restores a playable frontier")
 	_expect(map_view.recent_open_path.is_empty(), "undo clears the opening transition cells")
 	_expect(map_view.recent_open_values.is_empty(), "undo clears the opening transition values")
 	_expect(map_view.animal_animation_frame == 0, "undo returns the party to its stable standing frame")
+	map_view.debug_apply_next_intended_path()
+	map_view.debug_apply_next_intended_path()
+	_expect(map_view.undo_stack.size() == 2, "two openings preserve two undo snapshots")
+	map_view.undo_last_opening()
+	_expect(map_view.board.days == 1, "first layered undo restores the prior opening")
+	_expect(map_view.undo_stack.size() == 1, "one earlier undo remains available")
+	map_view.undo_last_opening()
+	_expect(map_view.board.days == 0, "second layered undo returns to the level start")
 	for index in 6:
 		map_view.debug_apply_next_intended_path()
 	_expect(map_view.tutorial_step == -1, "tutorial retires after the second opened road")
@@ -72,6 +92,10 @@ func _initialize() -> void:
 	_expect(map_view.animal_animation_frame == 0, "arrival returns the party to its standing frame")
 	_expect(map_view.celebration_time > 0.0, "arrival starts the completion celebration")
 	_expect(map_view.oasis_recovery_progress == 1.0, "arrival fully advances the oasis recovery state")
+	var completion_badges := map_view.completion_badge_states()
+	_expect(completion_badges["arrival"], "completion overlay awards arrival")
+	_expect(completion_badges["efficient"], "authored tutorial route earns story efficiency")
+	_expect(completion_badges["mastery"], "optimal tutorial route earns mastery")
 	var goal_view := map_view._cell_center(map_view.board.goal_cell) + map_view.pan_offset
 	_expect(
 		goal_view.y > 0.0 and goal_view.y < map_view.size.y,
@@ -124,6 +148,7 @@ func _initialize() -> void:
 		)
 	map_view._process(0.25)
 	_expect(map_view.fog_reveal_progress > 0.0, "fog reveal transition advances over time")
+
 	map_view._process(2.0)
 	_expect(map_view.recently_revealed_cells.is_empty(), "fog reveal transition clears after fading")
 	map_view.debug_apply_branch_path()
@@ -131,6 +156,27 @@ func _initialize() -> void:
 	map_view.undo_last_opening()
 	_expect(map_view.board.rescued_partners() == 0, "undo restores the unrescued partner state")
 	_expect(map_view.recently_revealed_cells.is_empty(), "undo clears any active fog reveal transition")
+
+	var tower_level: Dictionary = playable[10]
+	map_view.load_level(tower_level)
+	_expect(map_view.board.total_watchtowers() == 1, "chapter two introduces one watchtower")
+	map_view.debug_apply_next_intended_path()
+	map_view.debug_apply_next_intended_path()
+	var tower_branch: Array[Vector2i] = []
+	for cell in tower_level["branch_paths"][0]:
+		tower_branch.append(cell)
+	_expect(map_view.board.path_is_valid(tower_branch), "watchtower detour opens from the authored road")
+	var hidden_before_tower := map_view._hidden_cells().size()
+	map_view._commit_valid_path(tower_branch)
+	_expect(map_view.board.visited_watchtowers() == 1, "opening the detour visits the watchtower")
+	_expect(
+		map_view._hidden_cells().size() < hidden_before_tower,
+		"visited watchtower reveals a larger fog region"
+	)
+	var tower_snapshot := map_view.board.duplicate_state()
+	_expect(tower_snapshot.visited_watchtowers() == 1, "snapshots preserve watchtower progress")
+	map_view.undo_last_opening()
+	_expect(map_view.board.visited_watchtowers() == 0, "undo restores the unvisited watchtower state")
 
 	var checkpoint_updates: Array[Vector2i] = []
 	map_view.checkpoints_changed.connect(
@@ -182,6 +228,16 @@ func _initialize() -> void:
 		map_view._obstacle_variant(sampled_obstacle) == sampled_variant,
 		"an obstacle keeps the same visual variant within a loaded level"
 	)
+
+	map_view.configure_feedback(false, false, true)
+	map_view.load_level(playable[0])
+	map_view.debug_apply_next_intended_path()
+	map_view._process(0.12)
+	_expect(not map_view.sound_enabled, "sound setting reaches map feedback")
+	_expect(not map_view.vibration_enabled, "vibration setting reaches map feedback")
+	_expect(map_view.reduced_motion, "reduced-motion setting reaches map animation")
+	_expect(map_view.recent_open_path.is_empty(), "reduced motion shortens the road-opening transition")
+	_expect(map_view.ambient_time == 0.0, "reduced motion stops decorative ambient movement")
 
 	if failures.is_empty():
 		print("PASS: %d map-view flow assertions" % assertions)

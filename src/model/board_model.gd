@@ -16,6 +16,36 @@ const DIRECTIONS: Array[Vector2i] = [
 	Vector2i.UP,
 	Vector2i.DOWN,
 ]
+const RESHUFFLE_CHAIN_LENGTHS := [4, 3, 5, 2]
+const RESHUFFLE_TEMPLATES := {
+	2: [
+		[12, 12],
+	],
+	3: [
+		[12, 11, 1],
+		[9, 8, 7],
+		[11, 8, 5],
+		[10, 9, 5],
+		[12, 9, 3],
+		[10, 7, 7],
+	],
+	4: [
+		[11, 7, 4, 2],
+		[10, 8, 5, 1],
+		[9, 8, 4, 3],
+		[8, 7, 6, 3],
+		[7, 6, 6, 5],
+		[9, 6, 5, 4],
+	],
+	5: [
+		[8, 6, 5, 3, 2],
+		[7, 6, 5, 4, 2],
+		[6, 6, 5, 4, 3],
+		[9, 5, 4, 3, 3],
+		[8, 5, 4, 4, 3],
+		[7, 5, 5, 4, 3],
+	],
+}
 
 var width := 8
 var height := 12
@@ -32,6 +62,8 @@ var partner_cells: Array[Vector2i] = []
 var rescued_partner_cells: Array[Vector2i] = []
 var checkpoint_cells: Array[Vector2i] = []
 var visited_checkpoint_cells: Array[Vector2i] = []
+var watchtower_cells: Array[Vector2i] = []
+var visited_watchtower_cells: Array[Vector2i] = []
 
 
 func load_level(data: Dictionary) -> void:
@@ -56,6 +88,10 @@ func load_level(data: Dictionary) -> void:
 	for cell in data.get("checkpoint_cells", []):
 		checkpoint_cells.append(cell)
 	visited_checkpoint_cells.clear()
+	watchtower_cells.clear()
+	for cell in data.get("watchtower_cells", []):
+		watchtower_cells.append(cell)
+	visited_watchtower_cells.clear()
 
 
 func duplicate_state() -> MigrationBoardModel:
@@ -75,6 +111,8 @@ func duplicate_state() -> MigrationBoardModel:
 	copy.rescued_partner_cells = rescued_partner_cells.duplicate()
 	copy.checkpoint_cells = checkpoint_cells.duplicate()
 	copy.visited_checkpoint_cells = visited_checkpoint_cells.duplicate()
+	copy.watchtower_cells = watchtower_cells.duplicate()
+	copy.visited_watchtower_cells = visited_watchtower_cells.duplicate()
 	return copy
 
 
@@ -222,6 +260,8 @@ func apply_path(path: Array[Vector2i]) -> bool:
 			rescued_partner_cells.append(cell)
 		if cell in checkpoint_cells and cell not in visited_checkpoint_cells:
 			visited_checkpoint_cells.append(cell)
+		if cell in watchtower_cells and cell not in visited_watchtower_cells:
+			visited_watchtower_cells.append(cell)
 	days += 1
 	animal_cell = path.back()
 	return true
@@ -253,6 +293,18 @@ func checkpoint_is_visited(cell: Vector2i) -> bool:
 
 func checkpoint_requirements_met() -> bool:
 	return visited_checkpoint_cells.size() >= checkpoint_cells.size()
+
+
+func total_watchtowers() -> int:
+	return watchtower_cells.size()
+
+
+func visited_watchtowers() -> int:
+	return visited_watchtower_cells.size()
+
+
+func watchtower_is_visited(cell: Vector2i) -> bool:
+	return cell in visited_watchtower_cells
 
 
 func goal_is_connected() -> bool:
@@ -294,44 +346,78 @@ func has_valid_path() -> bool:
 
 
 func reshuffle_frontier_for_valid_path() -> bool:
-	var chain: Array[Vector2i] = []
+	# Recovery should adapt to the remaining board instead of stamping the same
+	# 7/8/9 answer into every dead end. Try several useful path lengths, choose a
+	# deterministic template from the board state, and validate with the exact
+	# gameplay rules before keeping any changed values.
+	for target_size in RESHUFFLE_CHAIN_LENGTHS:
+		var chains := _frontier_number_chains(int(target_size), 48)
+		for chain_variant in chains:
+			var chain: Array[Vector2i] = chain_variant
+			if path_violates_checkpoint_order(chain):
+				continue
+			var templates: Array = RESHUFFLE_TEMPLATES[int(target_size)]
+			var start_index := posmod(
+				days
+				+ chain[0].x * 7
+				+ chain[0].y * 11
+				+ chain.back().x * 13
+				+ chain.back().y * 17,
+				templates.size()
+			)
+			for template_offset in templates.size():
+				var values: Array = templates[
+					posmod(start_index + template_offset, templates.size())
+				].duplicate()
+				if posmod(chain[0].x + chain[0].y + days, 2) == 1:
+					values.reverse()
+				var previous_values := PackedInt32Array()
+				for cell in chain:
+					previous_values.append(value_at(cell))
+				for index in chain.size():
+					numbers[index_of(chain[index])] = int(values[index])
+				if path_is_valid(chain):
+					return true
+				for index in chain.size():
+					numbers[index_of(chain[index])] = previous_values[index]
+	return false
+
+
+func _frontier_number_chains(target_size: int, limit: int) -> Array:
+	var chains: Array = []
 	for y in height:
 		for x in width:
 			var cell := Vector2i(x, y)
 			if not is_frontier(cell):
 				continue
 			var working: Array[Vector2i] = []
-			if _find_number_chain(cell, 3, working, chain):
-				break
-		if not chain.is_empty():
-			break
-	if chain.size() != 3:
-		return false
-	var replacement_values := [7, 8, 9]
-	for index in chain.size():
-		numbers[index_of(chain[index])] = replacement_values[index]
-	return path_is_valid(chain)
+			_collect_number_chains(cell, target_size, working, chains, limit)
+			if chains.size() >= limit:
+				return chains
+	return chains
 
 
-func _find_number_chain(
+func _collect_number_chains(
 	cell: Vector2i,
 	target_size: int,
 	working: Array[Vector2i],
-	result: Array[Vector2i]
-) -> bool:
+	results: Array,
+	limit: int
+) -> void:
+	if results.size() >= limit:
+		return
 	if not is_number_cell(cell) or cell in working:
-		return false
+		return
 	working.append(cell)
 	if working.size() == target_size:
-		result.append_array(working)
+		results.append(working.duplicate())
 		working.pop_back()
-		return true
+		return
 	for direction in DIRECTIONS:
-		if _find_number_chain(cell + direction, target_size, working, result):
-			working.pop_back()
-			return true
+		_collect_number_chains(cell + direction, target_size, working, results, limit)
+		if results.size() >= limit:
+			break
 	working.pop_back()
-	return false
 
 
 func _find_path_depth_first(

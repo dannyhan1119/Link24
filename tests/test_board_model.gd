@@ -8,26 +8,62 @@ var assertions := 0
 
 
 func _initialize() -> void:
+	var chapters := LevelCatalog.chapter_definitions()
 	var levels := LevelCatalog.all_levels()
 	var playable := LevelCatalog.playable_levels()
-	_expect(levels.size() == 11, "catalog contains ten chapter levels and one internal map")
-	_expect(playable.size() == 10, "player catalog contains the complete first chapter")
-	for index in playable.size():
-		var level := playable[index]
-		var label := "chapter level %d" % (index + 1)
-		_expect(int(level["chapter"]) == 1, "%s belongs to chapter one" % label)
-		_expect(int(level["level_index"]) == index + 1, "%s has a stable sequential index" % label)
-		_expect(not str(level["lesson"]).is_empty(), "%s has a teaching purpose" % label)
+	_expect(chapters.size() == 2, "catalog exposes two playable chapters")
+	_expect(levels.size() == 21, "catalog contains twenty story levels and one internal map")
+	_expect(playable.size() == 20, "player catalog flattens both complete chapters")
+	var seen_ids := {}
+	for chapter_index in chapters.size():
+		var chapter: Dictionary = chapters[chapter_index]
+		var chapter_levels: Array = chapter["levels"]
+		_expect(chapter_levels.size() == 10, "chapter %d contains ten levels" % (chapter_index + 1))
 		_expect(
-			int(level["recommended_days"]) == level["intended_paths"].size(),
-			"%s recommendation matches its authored main route" % label
+			int(chapter["catalog_index"]) == chapter_index,
+			"chapter %d has a stable catalog index" % (chapter_index + 1)
 		)
-		_test_main_routes(level, label)
-		if not level["branch_paths"].is_empty():
-			_test_branch_return(level, label)
+		for level_index in chapter_levels.size():
+			var level: Dictionary = chapter_levels[level_index]
+			var label := "chapter %d level %d" % [chapter_index + 1, level_index + 1]
+			var level_id := str(level["id"])
+			_expect(not seen_ids.has(level_id), "%s has a globally unique ID" % label)
+			seen_ids[level_id] = true
+			_expect(int(level["chapter"]) == chapter_index + 1, "%s belongs to its chapter" % label)
+			_expect(
+				str(level["chapter_id"]) == str(chapter["id"]),
+				"%s references its stable chapter ID" % label
+			)
+			_expect(
+				int(level["level_index"]) == level_index + 1,
+				"%s has a stable local index" % label
+			)
+			_expect(
+				int(level["global_index"]) == chapter_index * 10 + level_index + 1,
+				"%s has a stable global index" % label
+			)
+			_expect(
+				bool(level["is_chapter_final"]) == (level_index == chapter_levels.size() - 1),
+				"%s records whether it closes the chapter" % label
+			)
+			_expect(not str(level["lesson"]).is_empty(), "%s has a teaching purpose" % label)
+			_expect(
+				int(level["optimal_days"]) > 0
+				and int(level["recommended_days"]) == int(level["optimal_days"]) + 1,
+				"%s separates exact mastery from the one-day story allowance" % label
+			)
+			_test_main_routes(level, label)
+			if not level["branch_paths"].is_empty():
+				_test_branch_return(level, label)
+			if chapter_index == 1:
+				_expect(
+					not level.get("watchtower_cells", []).is_empty(),
+					"%s includes the chapter-two watchtower rule" % label
+				)
+	_test_second_chapter_layouts_are_independent(chapters)
 	_test_stuck_map(levels.back())
 	_test_invalid_start(playable[0])
-	_test_checkpoint_order(playable[8])
+	_test_checkpoint_order(chapters[0]["levels"][8])
 
 	if failures.is_empty():
 		print("PASS: %d graybox assertions" % assertions)
@@ -73,13 +109,19 @@ func _test_branch_return(level: Dictionary, label: String) -> void:
 	var board := BoardModel.new()
 	board.load_level(level)
 	var intended: Array = level["intended_paths"]
-	var branch := _typed_path(level["branch_path"])
-	_expect(board.path_sum(branch) == 24, "%s branch path sums to 24" % label)
-	var branch_applied := false
+	var pending_branches: Array = []
+	for raw_branch in level["branch_paths"]:
+		var branch := _typed_path(raw_branch)
+		_expect(board.path_sum(branch) == 24, "%s branch path sums to 24" % label)
+		pending_branches.append(branch)
+	var applied_branches := 0
 	for index in intended.size():
-		if not branch_applied and board.path_is_valid(branch):
-			_expect(board.apply_path(branch), "%s optional branch applies" % label)
-			branch_applied = true
+		for branch_index in range(pending_branches.size() - 1, -1, -1):
+			var branch: Array[Vector2i] = pending_branches[branch_index]
+			if board.path_is_valid(branch):
+				_expect(board.apply_path(branch), "%s optional branch applies" % label)
+				pending_branches.remove_at(branch_index)
+				applied_branches += 1
 		var path := _typed_path(intended[index])
 		_expect(
 			board.path_is_valid(path),
@@ -89,22 +131,35 @@ func _test_branch_return(level: Dictionary, label: String) -> void:
 			board.apply_path(path),
 			"%s main route segment %d applies after branch" % [label, index + 1]
 		)
-	if not branch_applied and board.path_is_valid(branch):
-		_expect(board.apply_path(branch), "%s late optional branch applies" % label)
-		branch_applied = true
-	_expect(branch_applied, "%s branch becomes available from the connected road" % label)
+	for branch_index in range(pending_branches.size() - 1, -1, -1):
+		var branch: Array[Vector2i] = pending_branches[branch_index]
+		if board.path_is_valid(branch):
+			_expect(board.apply_path(branch), "%s late optional branch applies" % label)
+			pending_branches.remove_at(branch_index)
+			applied_branches += 1
+	_expect(pending_branches.is_empty(), "%s every optional branch becomes reachable" % label)
 	if board.total_partners() > 0:
 		_expect(
 			board.rescued_partners() == board.total_partners(),
 			"%s optional branch rescues every authored partner" % label
 		)
+	if board.total_watchtowers() > 0:
+		_expect(
+			board.visited_watchtowers() == board.total_watchtowers(),
+			"%s optional branch visits every authored watchtower" % label
+		)
 	_expect(board.goal_is_connected(), "%s returns from branch and reaches goal" % label)
-	_expect(board.days == intended.size() + 1, "%s detour costs one migration day" % label)
+	_expect(
+		board.days == intended.size() + applied_branches,
+		"%s each optional detour costs one migration day" % label
+	)
 
 
 func _test_stuck_map(level: Dictionary) -> void:
 	var board := BoardModel.new()
 	board.load_level(level)
+	var numbers_before := board.numbers.duplicate()
+	var terrain_before := board.terrain.duplicate()
 	_expect(board.goal_is_outside_board(), "stuck map destination is outside the board")
 	_expect(board.goal_entry_cells().size() == 1, "stuck map keeps one destination exit")
 	_expect(board.find_valid_path().is_empty(), "stuck map has no valid frontier path")
@@ -115,6 +170,23 @@ func _test_stuck_map(level: Dictionary) -> void:
 	_expect(not recovered_path.is_empty(), "reshuffle creates a valid frontier path")
 	_expect(board.path_sum(recovered_path) == 24, "reshuffled frontier path sums to 24")
 	_expect(board.path_is_valid(recovered_path), "reshuffled frontier path passes validation")
+	var recovered_values: Array[int] = []
+	var changed_cells := 0
+	for index in board.numbers.size():
+		if board.numbers[index] != numbers_before[index]:
+			changed_cells += 1
+	for cell in recovered_path:
+		recovered_values.append(board.value_at(cell))
+	recovered_values.sort()
+	_expect(
+		recovered_values != [7, 8, 9],
+		"frontier recovery no longer stamps the old fixed 7/8/9 placeholder"
+	)
+	_expect(
+		changed_cells == recovered_path.size(),
+		"frontier recovery changes only the selected unexplored chain"
+	)
+	_expect(board.terrain == terrain_before, "frontier recovery preserves all terrain state")
 
 
 func _test_invalid_start(level: Dictionary) -> void:
@@ -146,6 +218,38 @@ func _test_checkpoint_order(level: Dictionary) -> void:
 	)
 	var snapshot := board.duplicate_state()
 	_expect(snapshot.visited_checkpoints() == 1, "undo snapshots preserve water-stop progress")
+
+
+func _test_second_chapter_layouts_are_independent(chapters: Array[Dictionary]) -> void:
+	var first_signatures := {}
+	for level in chapters[0]["levels"]:
+		first_signatures[_route_signature(level["intended_paths"])] = true
+		first_signatures[_mirrored_route_signature(level["intended_paths"], int(level["width"]))] = true
+	for level in chapters[1]["levels"]:
+		_expect(
+			not first_signatures.has(_route_signature(level["intended_paths"])),
+			"%s is not copied or mirrored from chapter one" % str(level["id"])
+		)
+
+
+func _route_signature(paths: Array) -> String:
+	var parts := PackedStringArray()
+	for raw_path in paths:
+		var cells := PackedStringArray()
+		for cell in raw_path:
+			cells.append("%d,%d" % [cell.x, cell.y])
+		parts.append(";".join(cells))
+	return "|".join(parts)
+
+
+func _mirrored_route_signature(paths: Array, width: int) -> String:
+	var mirrored: Array = []
+	for raw_path in paths:
+		var path: Array[Vector2i] = []
+		for cell in raw_path:
+			path.append(Vector2i(width - 1 - cell.x, cell.y))
+		mirrored.append(path)
+	return _route_signature(mirrored)
 
 
 func _typed_path(raw_path: Array) -> Array[Vector2i]:

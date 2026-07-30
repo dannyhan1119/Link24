@@ -5,10 +5,12 @@ signal status_changed(total: int, label: String, accent: Color)
 signal session_changed(level_name: String, days: int, message: String)
 signal objectives_changed(rescued_partners: int, total_partners: int)
 signal checkpoints_changed(visited: int, total: int)
+signal watchtowers_changed(visited: int, total: int)
 signal level_completed(days: int)
 signal next_level_requested
 
 const BoardModel = preload("res://src/model/board_model.gd")
+const Localization = preload("res://src/model/localization.gd")
 const TEXTURE_DESERT: Texture2D = preload("res://art/environment/desert_map_base_v1.png")
 const TEXTURE_ANIMALS: Texture2D = preload("res://art/characters/migration_party_v1.png")
 const TEXTURE_ANIMALS_WALK_LEFT: Texture2D = preload(
@@ -37,6 +39,7 @@ const START_WORLD_MARGIN := 1.4
 const GOAL_SAFE_INSET := 58.0
 const GOAL_INDICATOR_RADIUS := 42.0
 const ANIMAL_SOURCE_RECT := Rect2(25.0, 270.0, 900.0, 1050.0)
+const MAX_UNDO_STEPS := 20
 
 const COLOR_SAND := Color("#F9E7BD")
 const COLOR_TILE := Color("#FFFAF0")
@@ -58,6 +61,7 @@ var pan_offset := Vector2.ZERO
 var selected_path: Array[Vector2i] = []
 var selected_sum := 0
 var hint_path: Array[Vector2i] = []
+var hint_stage := 0
 
 var selecting := false
 var panning := false
@@ -67,6 +71,7 @@ var completion_overlay_visible := false
 var celebration_time := 0.0
 var dead_end := false
 var previous_board: MigrationBoardModel = null
+var undo_stack: Array[MigrationBoardModel] = []
 
 var animal_visual_cell := Vector2.ZERO
 var animal_route: Array[Vector2i] = []
@@ -92,6 +97,9 @@ var ambient_redraw_accumulator := 0.0
 var oasis_recovery_progress := 0.0
 var feedback_audio: AudioStreamPlayer
 var arrival_audio: AudioStreamPlayer
+var sound_enabled := true
+var vibration_enabled := true
+var reduced_motion := false
 
 
 func _ready() -> void:
@@ -112,6 +120,7 @@ func load_level(data: Dictionary) -> void:
 	selected_path.clear()
 	selected_sum = 0
 	hint_path.clear()
+	hint_stage = 0
 	selecting = false
 	panning = false
 	completed = false
@@ -120,6 +129,7 @@ func load_level(data: Dictionary) -> void:
 	completion_next_rect = Rect2()
 	dead_end = false
 	previous_board = null
+	undo_stack.clear()
 	animal_route.clear()
 	animal_route_progress = 0.0
 	animal_animation_frame = 0
@@ -144,6 +154,7 @@ func load_level(data: Dictionary) -> void:
 	_emit_status()
 	_emit_objectives()
 	_emit_checkpoints()
+	_emit_watchtowers()
 	_refresh_dead_end_state()
 	if dead_end:
 		_emit_session("开局没有可用路径，已自动暂停并提供恢复操作")
@@ -158,15 +169,46 @@ func reset_level() -> void:
 	load_level(level_data)
 
 
+func configure_feedback(sound_on: bool, vibration_on: bool, reduce_motion: bool) -> void:
+	sound_enabled = sound_on
+	vibration_enabled = vibration_on
+	reduced_motion = reduce_motion
+	if not sound_enabled:
+		if feedback_audio != null:
+			feedback_audio.stop()
+		if arrival_audio != null:
+			arrival_audio.stop()
+	queue_redraw()
+
+
 func show_hint() -> void:
-	hint_path = board.find_valid_path()
-	if hint_path.is_empty():
+	var valid_path := board.find_valid_path()
+	if valid_path.is_empty():
 		_refresh_dead_end_state()
 		_emit_session("当前没有可用的 24 路径，请选择恢复操作")
 	else:
+		hint_stage = mini(hint_stage + 1, 3)
+		_set_hint_path_for_stage(valid_path)
 		recenter_on_cell(hint_path[0])
-		_emit_session("已标出一条可用路径的轮廓")
+		match hint_stage:
+			1:
+				_emit_session("罗盘提示：从高亮的道路前沿开始观察")
+			2:
+				_emit_session("方向提示：前两个数字已经标出，继续凑成 24")
+			_:
+				_emit_session("完整提示：已标出一条可用的 24 路径")
 	queue_redraw()
+
+
+func _set_hint_path_for_stage(valid_path: Array[Vector2i]) -> void:
+	hint_path.clear()
+	var visible_count := valid_path.size()
+	if hint_stage == 1:
+		visible_count = 1
+	elif hint_stage == 2:
+		visible_count = mini(2, valid_path.size())
+	for index in visible_count:
+		hint_path.append(valid_path[index])
 
 
 func recenter_on_animals() -> void:
@@ -185,14 +227,15 @@ func recenter_on_checkpoint() -> void:
 
 
 func undo_last_opening() -> void:
-	if previous_board == null:
+	if undo_stack.is_empty():
 		_emit_session("当前没有可以撤回的开路步骤")
 		return
-	board = previous_board
-	previous_board = null
+	board = undo_stack.pop_back()
+	previous_board = undo_stack.back() if not undo_stack.is_empty() else null
 	selected_path.clear()
 	selected_sum = 0
 	hint_path.clear()
+	hint_stage = 0
 	animal_route.clear()
 	animal_route_progress = 0.0
 	animal_animation_frame = 0
@@ -213,15 +256,21 @@ func undo_last_opening() -> void:
 	_emit_status()
 	_emit_objectives()
 	_emit_checkpoints()
-	_emit_session("已撤回上一次开路，可以重新选择方向")
+	_emit_watchtowers()
+	_emit_session(
+		"已撤回上一次开路，还可撤回 %d 步" % undo_stack.size()
+		if not undo_stack.is_empty()
+		else "已撤回上一次开路，可以重新选择方向"
+	)
 	queue_redraw()
 
 
 func reshuffle_dead_end_frontier() -> void:
 	if board.reshuffle_frontier_for_valid_path():
 		dead_end = false
-		hint_path = board.find_valid_path()
-		_emit_session("道路边缘已重整，并标出新的 24 路径")
+		hint_stage = 1
+		_set_hint_path_for_stage(board.find_valid_path())
+		_emit_session("道路边缘已重整，罗盘标出了新的可行动前沿")
 	else:
 		_emit_session("边界空间不足，无法重整，请重置地图")
 	queue_redraw()
@@ -266,6 +315,7 @@ func recenter_on_cell(cell: Vector2i) -> void:
 
 func _process(delta: float) -> void:
 	var needs_redraw := false
+	var transition_delta := delta * (12.0 if reduced_motion else 1.0)
 	if selecting:
 		var scroll_direction := Vector2.ZERO
 		if last_pointer.x < EDGE_SCROLL_MARGIN:
@@ -283,7 +333,7 @@ func _process(delta: float) -> void:
 			needs_redraw = true
 
 	if animal_route.size() >= 2:
-		animal_route_progress += delta * 5.0
+		animal_route_progress += transition_delta * 5.0
 		var last_index := animal_route.size() - 1
 		if animal_route_progress >= last_index:
 			animal_visual_cell = Vector2(animal_route[last_index].x, animal_route[last_index].y)
@@ -318,7 +368,7 @@ func _process(delta: float) -> void:
 		needs_redraw = true
 
 	if not recent_open_path.is_empty():
-		road_bloom_progress += delta * 3.6
+		road_bloom_progress += transition_delta * 3.6
 		var bloom_duration := 1.0 + float(recent_open_path.size() - 1) * 0.12
 		if road_bloom_progress >= bloom_duration:
 			recent_open_path.clear()
@@ -332,27 +382,30 @@ func _process(delta: float) -> void:
 
 	if int(level_data.get("fog_radius", 0)) > 0:
 		if not completed:
-			fog_time += delta
+			fog_time += 0.0 if reduced_motion else delta
 			fog_redraw_accumulator += delta
 			if fog_redraw_accumulator >= 0.08:
 				fog_redraw_accumulator = 0.0
 				needs_redraw = true
 		if not recently_revealed_cells.is_empty():
-			fog_reveal_progress += delta * 1.15
+			fog_reveal_progress += transition_delta * 1.15
 			if fog_reveal_progress >= 1.18:
 				recently_revealed_cells.clear()
 				fog_reveal_progress = 0.0
 			needs_redraw = true
 
-	ambient_time += delta
+	ambient_time += 0.0 if reduced_motion else delta
 	ambient_redraw_accumulator += delta
 	if ambient_redraw_accumulator >= 0.1:
 		ambient_redraw_accumulator = 0.0
 		needs_redraw = true
 
 	if completion_overlay_visible:
-		celebration_time += delta
-		oasis_recovery_progress = minf(1.0, oasis_recovery_progress + delta / 1.35)
+		celebration_time += 0.0 if reduced_motion else delta
+		oasis_recovery_progress = minf(
+			1.0,
+			oasis_recovery_progress + transition_delta / 1.35
+		)
 		needs_redraw = true
 
 	if needs_redraw:
@@ -506,18 +559,25 @@ func _commit_valid_path(path: Array[Vector2i]) -> void:
 		opening_values.append(board.value_at(cell))
 	var rescued_before := board.rescued_partners()
 	var checkpoints_before := board.visited_checkpoints()
+	var watchtowers_before := board.visited_watchtowers()
 	var applied := board.apply_path(path)
 	if not applied:
 		_emit_session("开发错误：合法路径未能应用")
 		return
 	_play_feedback_sound(SFX_OPEN_PATH)
-	Input.vibrate_handheld(28)
+	if vibration_enabled:
+		Input.vibrate_handheld(28)
 	var rescued_now := board.rescued_partners() > rescued_before
 	var checkpoint_reached := board.visited_checkpoints() > checkpoints_before
+	var watchtower_reached := board.visited_watchtowers() > watchtowers_before
 	_emit_objectives()
 	_emit_checkpoints()
+	_emit_watchtowers()
 	_capture_newly_revealed_cells(hidden_before)
-	previous_board = snapshot
+	undo_stack.append(snapshot)
+	if undo_stack.size() > MAX_UNDO_STEPS:
+		undo_stack.pop_front()
+	previous_board = undo_stack.back()
 	_sync_tutorial_step()
 	if board.level_is_complete():
 		movement_route.append(board.goal_cell)
@@ -526,6 +586,7 @@ func _commit_valid_path(path: Array[Vector2i]) -> void:
 	recent_open_values = opening_values
 	road_bloom_progress = 0.0
 	hint_path.clear()
+	hint_stage = 0
 	if board.level_is_complete():
 		completed = true
 		dead_end = false
@@ -538,6 +599,8 @@ func _commit_valid_path(path: Array[Vector2i]) -> void:
 		_emit_session("找到了迷路的耳廓狐！它已经加入迁徙队伍")
 	elif checkpoint_reached and not completed:
 		_emit_session("水塘补给完成！通往目标绿洲的出口已经开启")
+	elif watchtower_reached and not completed:
+		_emit_session("瞭望点已点亮！高处视野驱散了周围大片薄雾")
 	elif not completed:
 		_emit_session("开路成功，继续从绿色道路边缘出发")
 
@@ -585,14 +648,14 @@ func _start_animal_route(route: Array[Vector2i]) -> void:
 
 
 func _play_feedback_sound(stream: AudioStream) -> void:
-	if feedback_audio == null:
+	if feedback_audio == null or not sound_enabled:
 		return
 	feedback_audio.stream = stream
 	feedback_audio.play()
 
 
 func _play_arrival_sound() -> void:
-	if arrival_audio == null:
+	if arrival_audio == null or not sound_enabled:
 		return
 	arrival_audio.stream = SFX_ARRIVAL
 	arrival_audio.play()
@@ -650,6 +713,7 @@ func _draw() -> void:
 
 	_draw_exploration_fog()
 	_draw_water_checkpoints()
+	_draw_watchtowers()
 	_draw_waiting_partners()
 	_draw_destination_gate()
 	_draw_hint_path()
@@ -673,7 +737,7 @@ func _draw() -> void:
 func _draw_completion_overlay() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#17395438"), true)
 	_draw_celebration_particles()
-	var panel := Rect2(size.x * 0.13, size.y * 0.34, size.x * 0.74, 370.0)
+	var panel := Rect2(size.x * 0.10, size.y * 0.29, size.x * 0.80, 470.0)
 	_draw_rounded_rect(
 		Rect2(panel.position + Vector2(0, 12), panel.size),
 		Color("#24485A4A"),
@@ -687,19 +751,20 @@ func _draw_completion_overlay() -> void:
 	_draw_centered_text("✓", badge_center + Vector2(0, 18), 47, Color("#3BB96A"))
 	_draw_centered_text(
 		"迁徙路线已打通",
-		Vector2(panel.get_center().x, panel.position.y + 123.0),
+		Vector2(panel.get_center().x, panel.position.y + 116.0),
 		46,
 		COLOR_NUMBER
 	)
 	_draw_centered_text(
 		"动物队伍安全抵达新绿洲",
-		Vector2(panel.get_center().x, panel.position.y + 174.0),
+		Vector2(panel.get_center().x, panel.position.y + 162.0),
 		27,
 		Color("#4E7087")
 	)
+	_draw_completion_badges(panel)
 	_draw_centered_text(
 		_completion_days_label(),
-		Vector2(panel.get_center().x, panel.position.y + 218.0),
+		Vector2(panel.get_center().x, panel.position.y + 322.0),
 		24,
 		Color("#3DAF68")
 	)
@@ -711,9 +776,57 @@ func _draw_completion_overlay() -> void:
 	)
 	_draw_rounded_rect(completion_next_rect, Color("#38BCE4"), 31.0, Color.WHITE, 4.0)
 	var next_label := "继续下一关  ›"
-	if int(level_data.get("level_index", 0)) == 10:
-		next_label = "完成第一章  ›"
+	if bool(level_data.get("is_chapter_final", false)):
+		next_label = "完成本章  ›"
 	_draw_centered_text(next_label, completion_next_rect.get_center() + Vector2(0, 10), 28, Color.WHITE)
+
+
+func completion_badge_states() -> Dictionary:
+	var recommended := int(level_data.get("recommended_days", 0))
+	var optimal := int(level_data.get("optimal_days", recommended))
+	var has_partners := board.total_partners() > 0
+	var has_watchtowers := board.total_watchtowers() > 0
+	var mastery := (
+		(
+			board.rescued_partners() >= board.total_partners()
+			and board.visited_watchtowers() >= board.total_watchtowers()
+		)
+		if has_partners or has_watchtowers
+		else optimal > 0 and board.days <= optimal
+	)
+	return {
+		"arrival": true,
+		"efficient": recommended > 0 and board.days <= recommended,
+		"mastery": mastery,
+	}
+
+
+func _draw_completion_badges(panel: Rect2) -> void:
+	var states := completion_badge_states()
+	var labels := [
+		["抵达", bool(states["arrival"])],
+		["远行家", bool(states["efficient"])],
+		[
+			"探索"
+			if board.total_watchtowers() > 0
+			else "伙伴"
+			if board.total_partners() > 0
+			else "先锋",
+			bool(states["mastery"]),
+		],
+	]
+	var spacing := 178.0
+	var start_x := panel.get_center().x - spacing
+	for index in labels.size():
+		var center := Vector2(start_x + float(index) * spacing, panel.position.y + 238.0)
+		var achieved := bool(labels[index][1])
+		var fill := Color("#65CF87") if achieved else Color("#D9E3E3")
+		var text_color := Color("#2C9257") if achieved else Color("#84999E")
+		draw_circle(center + Vector2(0, 5), 34.0, Color("#31515E2A"))
+		draw_circle(center, 34.0, fill)
+		draw_circle(center, 27.0, Color("#F7FFF7") if achieved else Color("#F1F4F3"))
+		_draw_centered_text("✓" if achieved else "·", center + Vector2(0, 11), 29, text_color)
+		_draw_centered_text(str(labels[index][0]), center + Vector2(0, 61), 21, text_color)
 
 
 func _completion_days_label() -> String:
@@ -721,6 +834,11 @@ func _completion_days_label() -> String:
 	var partner_suffix := ""
 	if board.total_partners() > 0:
 		partner_suffix = " · 伙伴 %d/%d" % [board.rescued_partners(), board.total_partners()]
+	if board.total_watchtowers() > 0:
+		partner_suffix += " · 瞭望 %d/%d" % [
+			board.visited_watchtowers(),
+			board.total_watchtowers(),
+		]
 	if recommended <= 0:
 		return "用了 %d 个迁徙日%s" % [board.days, partner_suffix]
 	if board.days <= recommended:
@@ -729,11 +847,11 @@ func _completion_days_label() -> String:
 
 
 func _update_completion_next_rect() -> void:
-	var panel := Rect2(size.x * 0.13, size.y * 0.34, size.x * 0.74, 370.0)
+	var panel := Rect2(size.x * 0.10, size.y * 0.29, size.x * 0.80, 470.0)
 	completion_next_rect = Rect2(
-		panel.position.x + 150.0,
-		panel.position.y + 260.0,
-		panel.size.x - 300.0,
+		panel.position.x + 170.0,
+		panel.position.y + 365.0,
+		panel.size.x - 340.0,
 		76.0
 	)
 
@@ -1122,7 +1240,48 @@ func _cell_is_revealed(cell: Vector2i, fog_radius := -1) -> bool:
 				continue
 			if abs(cell.x - road_cell.x) + abs(cell.y - road_cell.y) <= fog_radius:
 				return true
+	var tower_radius := int(level_data.get("watchtower_reveal_radius", 5))
+	for tower in board.visited_watchtower_cells:
+		if abs(cell.x - tower.x) + abs(cell.y - tower.y) <= tower_radius:
+			return true
 	return false
+
+
+func _draw_watchtowers() -> void:
+	for cell in board.watchtower_cells:
+		var center := _cell_center(cell)
+		var visited := board.watchtower_is_visited(cell)
+		var glow := Color("#FFE78455") if visited else Color("#FFFFFFB8")
+		draw_circle(center, 52.0, glow)
+		draw_circle(
+			center,
+			48.0,
+			Color("#F5C95A") if visited else Color("#E8D6A8"),
+			false,
+			5.0,
+			true
+		)
+		var tower_color := Color("#9B6A32") if visited else Color("#7D776A")
+		draw_polygon(
+			PackedVector2Array([
+				center + Vector2(-20, 30),
+				center + Vector2(-10, -19),
+				center + Vector2(10, -19),
+				center + Vector2(20, 30),
+			]),
+			PackedColorArray([tower_color])
+		)
+		draw_line(center + Vector2(0, -18), center + Vector2(0, -48), tower_color, 5.0)
+		draw_colored_polygon(
+			PackedVector2Array([
+				center + Vector2(2, -47),
+				center + Vector2(30, -37),
+				center + Vector2(2, -27),
+			]),
+			Color("#62CE83") if visited else Color("#F0B74C")
+		)
+		if visited:
+			_draw_centered_text("✓", center + Vector2(0, 14), 25, Color.WHITE)
 
 
 func _draw_water_checkpoints() -> void:
@@ -1626,6 +1785,10 @@ func _emit_checkpoints() -> void:
 	checkpoints_changed.emit(board.visited_checkpoints(), board.total_checkpoints())
 
 
+func _emit_watchtowers() -> void:
+	watchtowers_changed.emit(board.visited_watchtowers(), board.total_watchtowers())
+
+
 func _draw_rounded_rect(
 	rect: Rect2,
 	fill: Color,
@@ -1647,6 +1810,7 @@ func _make_style(fill: Color, border: Color, border_width: float, radius: float)
 
 
 func _draw_centered_text(text: String, center: Vector2, font_size: int, color: Color) -> void:
+	text = Localization.text(text)
 	var font := ThemeDB.fallback_font
 	var width := maxf(1.0, font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x)
 	draw_string(

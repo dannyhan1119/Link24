@@ -25,7 +25,7 @@
 | 高岩堆障碍 | `art/obstacles/rock_cluster_v1.png` | 不可通过的高轮廓障碍 |
 | 低矮花岩障碍 | `art/obstacles/rock_cluster_low_v1.png` | 低而宽的岩石变体 |
 | 仙人掌花丛障碍 | `art/obstacles/cactus_cluster_v1.png` | 绿色植被障碍变体 |
-| 迷路耳廓狐 | `art/characters/lost_fennec_v2.png` | 第 8 关可营救伙伴与队伍成员 |
+| 迷路耳廓狐 | `art/characters/lost_fennec_v2.png` | 可营救伙伴与绿洲家园居民 |
 | 砂岩数字块 | `art/tiles/sandstone_tile_v1.png` | 普通数字格的软 3D 石材底板 |
 | 草地选中块 | `art/tiles/grass_tile_v1.png` | 连线路径与道路表面纹理 |
 | 重置按钮 | `art/ui/button_reset_v1.png` | 圆形蓝色重置操作 |
