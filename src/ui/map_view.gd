@@ -10,6 +10,7 @@ signal level_completed(days: int)
 signal next_level_requested
 
 const BoardModel = preload("res://src/model/board_model.gd")
+const StrategySolver = preload("res://src/model/strategy_solver.gd")
 const Localization = preload("res://src/model/localization.gd")
 const TEXTURE_DESERT: Texture2D = preload("res://art/environment/desert_map_base_v1.png")
 const TEXTURE_ANIMALS: Texture2D = preload("res://art/characters/migration_party_v1.png")
@@ -40,6 +41,7 @@ const GOAL_SAFE_INSET := 58.0
 const GOAL_INDICATOR_RADIUS := 42.0
 const ANIMAL_SOURCE_RECT := Rect2(25.0, 270.0, 900.0, 1050.0)
 const MAX_UNDO_STEPS := 20
+const HINT_STATE_CAP := 12000
 
 const COLOR_SAND := Color("#F9E7BD")
 const COLOR_TILE := Color("#FFFAF0")
@@ -61,6 +63,7 @@ var pan_offset := Vector2.ZERO
 var selected_path: Array[Vector2i] = []
 var selected_sum := 0
 var hint_path: Array[Vector2i] = []
+var safe_hint_path: Array[Vector2i] = []
 var hint_stage := 0
 
 var selecting := false
@@ -120,6 +123,7 @@ func load_level(data: Dictionary) -> void:
 	selected_path.clear()
 	selected_sum = 0
 	hint_path.clear()
+	safe_hint_path.clear()
 	hint_stage = 0
 	selecting = false
 	panning = false
@@ -182,21 +186,31 @@ func configure_feedback(sound_on: bool, vibration_on: bool, reduce_motion: bool)
 
 
 func show_hint() -> void:
-	var valid_path := board.find_valid_path()
-	if valid_path.is_empty():
-		_refresh_dead_end_state()
-		_emit_session("当前没有可用的 24 路径，请选择恢复操作")
-	else:
-		hint_stage = mini(hint_stage + 1, 3)
-		_set_hint_path_for_stage(valid_path)
-		recenter_on_cell(hint_path[0])
-		match hint_stage:
-			1:
-				_emit_session("罗盘提示：从高亮的道路前沿开始观察")
-			2:
-				_emit_session("方向提示：前两个数字已经标出，继续凑成 24")
-			_:
-				_emit_session("完整提示：已标出一条可用的 24 路径")
+	if safe_hint_path.is_empty():
+		var solution := StrategySolver.find_solution(board, HINT_STATE_CAP)
+		if bool(solution["solved"]):
+			safe_hint_path = _typed_path(solution["first_path"])
+		elif bool(solution["exhausted"]) and bool(solution["exact"]):
+			dead_end = true
+			_emit_session("向导确认这条迁徙线无法抵达绿洲，请撤回或请求重整")
+			queue_redraw()
+			return
+		else:
+			_emit_session("向导暂时无法确认安全路线，请先撤回一步再观察")
+			queue_redraw()
+			return
+	if safe_hint_path.is_empty():
+		return
+	hint_stage = mini(hint_stage + 1, 3)
+	_set_hint_path_for_stage(safe_hint_path)
+	recenter_on_cell(hint_path[0])
+	match hint_stage:
+		1:
+			_emit_session("罗盘提示：从高亮的道路前沿开始观察")
+		2:
+			_emit_session("方向提示：前两个数字已经标出，继续凑成 24")
+		_:
+			_emit_session("完整提示：这条路径已确认可以继续抵达绿洲")
 	queue_redraw()
 
 
@@ -209,6 +223,13 @@ func _set_hint_path_for_stage(valid_path: Array[Vector2i]) -> void:
 		visible_count = mini(2, valid_path.size())
 	for index in visible_count:
 		hint_path.append(valid_path[index])
+
+
+func _typed_path(raw_path) -> Array[Vector2i]:
+	var path: Array[Vector2i] = []
+	for cell in raw_path:
+		path.append(cell)
+	return path
 
 
 func recenter_on_animals() -> void:
@@ -235,6 +256,7 @@ func undo_last_opening() -> void:
 	selected_path.clear()
 	selected_sum = 0
 	hint_path.clear()
+	safe_hint_path.clear()
 	hint_stage = 0
 	animal_route.clear()
 	animal_route_progress = 0.0
@@ -268,11 +290,12 @@ func undo_last_opening() -> void:
 func reshuffle_dead_end_frontier() -> void:
 	if board.reshuffle_frontier_for_valid_path():
 		dead_end = false
+		safe_hint_path = StrategySolver.find_winning_path(board, HINT_STATE_CAP)
 		hint_stage = 1
-		_set_hint_path_for_stage(board.find_valid_path())
-		_emit_session("道路边缘已重整，罗盘标出了新的可行动前沿")
+		_set_hint_path_for_stage(safe_hint_path)
+		_emit_session("向导重新整理了路标，这条新路线已经确认能够抵达绿洲")
 	else:
-		_emit_session("边界空间不足，无法重整，请重置地图")
+		_emit_session("向导无法安全重整当前路线，请撤回上步或重置地图")
 	queue_redraw()
 
 
@@ -586,6 +609,7 @@ func _commit_valid_path(path: Array[Vector2i]) -> void:
 	recent_open_values = opening_values
 	road_bloom_progress = 0.0
 	hint_path.clear()
+	safe_hint_path.clear()
 	hint_stage = 0
 	if board.level_is_complete():
 		completed = true
@@ -901,14 +925,19 @@ func _draw_dead_end_overlay() -> void:
 		44.0
 	)
 	_draw_rounded_rect(panel, Color("#FFF9ECFA"), 44.0, Color("#F2C66B"), 6.0)
-	_draw_centered_text("前方暂时无路", Vector2(panel.get_center().x, panel.position.y + 82), 43, COLOR_NUMBER)
-	var detail := "选择一种恢复方式，动物队伍不会丢失"
+	_draw_centered_text(
+		"队伍在沙丘中迷路了",
+		Vector2(panel.get_center().x, panel.position.y + 82),
+		43,
+		COLOR_NUMBER
+	)
+	var detail := "迁徙向导会保留已有道路，选择一种方式重新找路"
 	if previous_board == null:
-		detail = "这是开局死路，请重整边界或重置地图"
+		detail = "向导可以重整路标，或带队伍从营地重新出发"
 	_draw_centered_text(detail, Vector2(panel.get_center().x, panel.position.y + 132), 24, Color("#557187"))
-	_draw_recovery_button(dead_undo_rect, "撤回上步", previous_board != null, Color("#55BEE6"))
-	_draw_recovery_button(dead_reshuffle_rect, "重整边界", true, Color("#68C96A"))
-	_draw_recovery_button(dead_reset_rect, "重置地图", true, Color("#F0A952"))
+	_draw_recovery_button(dead_undo_rect, "沿路返回", previous_board != null, Color("#55BEE6"))
+	_draw_recovery_button(dead_reshuffle_rect, "请向导重整", true, Color("#68C96A"))
+	_draw_recovery_button(dead_reset_rect, "返回营地", true, Color("#F0A952"))
 
 
 func _update_dead_end_rects() -> void:

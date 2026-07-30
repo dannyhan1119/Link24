@@ -6,7 +6,7 @@ extends SceneTree
 #     --headless --path . --script res://tools/solve_strategy.gd
 #
 # 指标：
-#   1. 全状态回溯标记：通关/死局/必胜/必败/陷阱态占比
+#   1. 全状态回溯标记：通关/死局/必胜/必败/未来风险态/一步陷阱态
 #   2. 四种策略的精确死局概率与平均通关天数（DP，非模拟）
 #      - 均匀随机：所有合法动作等概率
 #      - 直奔出口：选"路径最深格（距起点曼哈顿最远）到出口入口格曼哈顿距离"最小的动作，并列等概率
@@ -20,28 +20,83 @@ const LevelCatalog = preload("res://src/model/level_catalog.gd")
 const TARGET_SUM := 24
 const DIRS: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 
-const STATE_CAP := 300000        # 单关状态上限
-const TIME_CAP_MS := 40000       # 单关总时间上限
+const STATE_CAP := 1200000       # 为后续关卡调整预留余量，当前 20 关均可精确覆盖
+const TIME_CAP_MS := 420000      # 覆盖当前最慢关卡；可用 --time 覆盖
 const MOVE_CAP := 400            # 单状态动作枚举上限
 const ENUM_NODE_CAP := 200000    # 单状态枚举节点上限
 
 const STRATEGIES := ["均匀随机", "直奔出口", "前沿最大", "前沿最小"]
+const RANDOM_FAILURE_BANDS := {
+	"c1_l01": Vector2(0.0, 0.0),
+	"c1_l02": Vector2(0.0, 0.0),
+	"c1_l03": Vector2(0.0, 0.0),
+	"c1_l04": Vector2(15.0, 30.0),
+	"c1_l05": Vector2(15.0, 30.0),
+	"c1_l06": Vector2(15.0, 35.0),
+	"c1_l07": Vector2(30.0, 50.0),
+	"c1_l08": Vector2(30.0, 50.0),
+	"c1_l09": Vector2(40.0, 60.0),
+	"c1_l10": Vector2(45.0, 65.0),
+	"c2_l01": Vector2(10.0, 30.0),
+	"c2_l02": Vector2(15.0, 35.0),
+	"c2_l03": Vector2(0.0, 20.0),
+	"c2_l04": Vector2(25.0, 45.0),
+	"c2_l05": Vector2(30.0, 50.0),
+	"c2_l06": Vector2(20.0, 40.0),
+	"c2_l07": Vector2(40.0, 60.0),
+	"c2_l08": Vector2(55.0, 70.0),
+	"c2_l09": Vector2(55.0, 70.0),
+	"c2_l10": Vector2(60.0, 75.0),
+}
+const MAX_ADJACENT_RANDOM_FAILURE_JUMP := 25.0
 
 
 func _initialize() -> void:
 	var levels := LevelCatalog.playable_levels()
+	# 可选：--only c2_l04,c2_l06 只跑指定关卡；--time 秒 --statecap N 覆盖预算
+	var only := {}
+	var time_cap := TIME_CAP_MS
+	var state_cap := STATE_CAP
+	var user_args := OS.get_cmdline_user_args()
+	var validate := "--validate" in user_args
+	for i in user_args.size():
+		if user_args[i] == "--only" and i + 1 < user_args.size():
+			for id_str in str(user_args[i + 1]).split(","):
+				only[id_str.strip_edges()] = true
+		elif user_args[i] == "--time" and i + 1 < user_args.size():
+			time_cap = int(user_args[i + 1]) * 1000
+		elif user_args[i] == "--statecap" and i + 1 < user_args.size():
+			state_cap = int(user_args[i + 1])
 	print("绿洲迁徙 · 策略层精确分析 · %d 关" % levels.size())
 	print("预算: 状态上限=%d, 单关=%ds, 单状态动作上限=%d, 枚举节点上限=%d" % [
-		STATE_CAP, TIME_CAP_MS / 1000, MOVE_CAP, ENUM_NODE_CAP,
+		state_cap, time_cap / 1000, MOVE_CAP, ENUM_NODE_CAP,
 	])
 	var summaries: Array = []
 	for li in levels.size():
-		summaries.append(_analyze_level(levels[li], li))
+		if not only.is_empty() and not only.has(str(levels[li]["id"])):
+			continue
+		summaries.append(_analyze_level(levels[li], li, time_cap, state_cap))
 	_print_summary(summaries)
-	quit(0)
+	var inexact := false
+	for summary in summaries:
+		if bool(summary.get("aborted", false)) or bool(summary.get("approx", false)):
+			inexact = true
+	if validate and inexact:
+		push_error("策略分析未完成精确枚举：存在预算耗尽或动作枚举截断")
+		quit(1)
+	else:
+		if validate:
+			var validation_failures := _validate_difficulty_curve(summaries)
+			if not validation_failures.is_empty():
+				for failure in validation_failures:
+					push_error("策略难度校验失败: %s" % failure)
+				quit(1)
+				return
+			print("策略分析精确性与难度曲线校验: PASS")
+		quit(0)
 
 
-func _analyze_level(level: Dictionary, li: int) -> Dictionary:
+func _analyze_level(level: Dictionary, li: int, time_cap := TIME_CAP_MS, state_cap := STATE_CAP) -> Dictionary:
 	var t0 := Time.get_ticks_msec()
 	var board: RefCounted = BoardModel.new()
 	board.load_level(level)
@@ -80,7 +135,7 @@ func _analyze_level(level: Dictionary, li: int) -> Dictionary:
 	var approx := false
 	var head := 0
 	while head < terrains.size():
-		if head >= STATE_CAP or Time.get_ticks_msec() - t0 > TIME_CAP_MS:
+		if head >= state_cap or Time.get_ticks_msec() - t0 > time_cap:
 			aborted = true
 			break
 		var sid := head
@@ -153,6 +208,7 @@ func _analyze_level(level: Dictionary, li: int) -> Dictionary:
 	var out := {
 		"id": str(level["id"]),
 		"name": str(level["name"]),
+		"global_index": int(level["global_index"]),
 		"rec": int(level["recommended_days"]),
 		"aborted": aborted,
 		"approx": approx,
@@ -193,16 +249,41 @@ func _analyze_level(level: Dictionary, li: int) -> Dictionary:
 		cl[i] = 1 if any_lose else 0
 	var win_cnt := 0
 	var lose_cnt := 0
-	var trap_cnt := 0
+	var future_risk_cnt := 0
 	for i in n:
 		if complete[i] == 1:
 			continue
 		if cw[i] == 1 and cl[i] == 1:
-			trap_cnt += 1
+			future_risk_cnt += 1
 		elif cw[i] == 1:
 			win_cnt += 1
 		else:
 			lose_cnt += 1
+
+	# “未来可能失败”不等于“当前一步就不可逆”。单独统计当前动作中
+	# 后继状态已经不再可赢的动作，才是玩家此刻真正会踩中的一步陷阱。
+	var immediate_trap_cnt := 0
+	var fatal_action_total := 0
+	var action_total := 0
+	var initial_safe_actions := 0
+	var initial_fatal_actions := 0
+	for i in n:
+		if complete[i] == 1 or cw[i] == 0:
+			continue
+		var safe_actions := 0
+		var fatal_actions := 0
+		for nid in succ[i]:
+			if cw[nid] == 1:
+				safe_actions += 1
+			else:
+				fatal_actions += 1
+		if safe_actions > 0 and fatal_actions > 0:
+			immediate_trap_cnt += 1
+		fatal_action_total += fatal_actions
+		action_total += safe_actions + fatal_actions
+		if i == 0:
+			initial_safe_actions = safe_actions
+			initial_fatal_actions = fatal_actions
 
 	# ---- 四策略 DP（p_dead / 平均通关天数）----
 	var p_dead := PackedFloat64Array()
@@ -284,7 +365,12 @@ func _analyze_level(level: Dictionary, li: int) -> Dictionary:
 	out["dead_cnt"] = dead_cnt
 	out["win_cnt"] = win_cnt
 	out["lose_cnt"] = lose_cnt
-	out["trap_cnt"] = trap_cnt
+	out["future_risk_cnt"] = future_risk_cnt
+	out["immediate_trap_cnt"] = immediate_trap_cnt
+	out["fatal_action_total"] = fatal_action_total
+	out["action_total"] = action_total
+	out["initial_safe_actions"] = initial_safe_actions
+	out["initial_fatal_actions"] = initial_fatal_actions
 	out["strat"] = strat_results
 	out["prefinal_hist"] = prefinal_hist
 	out["prefinal_avg"] = float(prefinal_sum) / prefinal_cnt if prefinal_cnt > 0 else 0.0
@@ -301,12 +387,23 @@ func _analyze_level(level: Dictionary, li: int) -> Dictionary:
 		", 枚举触顶→近似" if approx else "",
 		"",
 	])
-	print("  标记: 通关终态=%d (%.1f%%) | 死局=%d (%.1f%%) | 必胜=%d (%.1f%%) | 必败(含死局)=%d (%.1f%%) | 陷阱=%d (%.1f%%)" % [
+	print("  标记: 通关终态=%d (%.1f%%) | 死局=%d (%.1f%%) | 必胜=%d (%.1f%%) | 必败(含死局)=%d (%.1f%%) | 未来风险=%d (%.1f%%) | 一步陷阱=%d (%.1f%%)" % [
 		complete_cnt, complete_cnt * pct,
 		dead_cnt, dead_cnt * pct,
 		win_cnt, win_cnt * pct,
 		lose_cnt, lose_cnt * pct,
-		trap_cnt, trap_cnt * pct,
+		future_risk_cnt, future_risk_cnt * pct,
+		immediate_trap_cnt, immediate_trap_cnt * pct,
+	])
+	print("  初始动作: 安全=%d | 一步致死=%d | 一步致死率=%.1f%%" % [
+		initial_safe_actions,
+		initial_fatal_actions,
+		100.0 * initial_fatal_actions / maxi(1, initial_safe_actions + initial_fatal_actions),
+	])
+	print("  全局动作: 安全=%d | 一步致死=%d | 安全动作比例=%.1f%%" % [
+		action_total - fatal_action_total,
+		fatal_action_total,
+		100.0 * (action_total - fatal_action_total) / maxi(1, action_total),
 	])
 	for si in 4:
 		var r: Dictionary = strat_results[si]
@@ -335,8 +432,9 @@ func _print_summary(summaries: Array) -> void:
 	print("==================== 总计 ====================")
 	print("")
 	print("-- 20 关 × 四策略 死局概率(%) / 平均通关天数 --")
-	print("  %-8s %-4s | %-14s %-14s %-14s %-14s | %-9s %-9s %-9s" % [
-		"关卡", "推荐", "均匀随机", "直奔出口", "前沿最大", "前沿最小", "死局态%", "必败态%", "陷阱态%",
+	print("  %-8s %-4s | %-14s %-14s %-14s %-14s | %-9s %-9s %-9s %-9s" % [
+		"关卡", "推荐", "均匀随机", "直奔出口", "前沿最大", "前沿最小",
+		"死局态%", "必败态%", "未来风险%", "一步陷阱%",
 	])
 	for s in summaries:
 		if s["aborted"]:
@@ -356,12 +454,36 @@ func _print_summary(summaries: Array) -> void:
 				]
 			)
 		var n: int = s["states"]
-		print("  %-8s %-4d | %-14s %-14s %-14s %-14s | %-9.1f %-9.1f %-9.1f" % [
+		print("  %-8s %-4d | %-14s %-14s %-14s %-14s | %-9.1f %-9.1f %-9.1f %-9.1f" % [
 			s["id"], s["rec"],
 			cells[0], cells[1], cells[2], cells[3],
 			100.0 * int(s["dead_cnt"]) / n,
 			100.0 * int(s["lose_cnt"]) / n,
-			100.0 * int(s["trap_cnt"]) / n,
+			100.0 * int(s["future_risk_cnt"]) / n,
+			100.0 * int(s["immediate_trap_cnt"]) / n,
+		])
+	print("")
+	print("-- 动作安全性 --")
+	print("  %-8s | %-8s %-8s %-10s %-12s" % [
+		"关卡", "初始安全", "初始致死", "初始致死率", "全局安全动作%",
+	])
+	for s in summaries:
+		if s["aborted"]:
+			continue
+		var safe := int(s["initial_safe_actions"])
+		var fatal := int(s["initial_fatal_actions"])
+		var action_total := int(s["action_total"])
+		var fatal_action_total := int(s["fatal_action_total"])
+		var initial_rate := "%.1f%%" % (100.0 * fatal / maxi(1, safe + fatal))
+		var global_safe_rate := "%.1f%%" % (
+			100.0 * (action_total - fatal_action_total) / maxi(1, action_total)
+		)
+		print("  %-8s | %-8d %-8d %-10s %-12s" % [
+			s["id"],
+			safe,
+			fatal,
+			initial_rate,
+			global_safe_rate,
 		])
 	print("")
 	print("-- 指标 3 汇总 --")
@@ -383,6 +505,48 @@ func _hist_str(hist: Dictionary) -> String:
 	for k in keys:
 		parts.append("%d:%d" % [int(k), int(hist[k])])
 	return "{%s}" % ", ".join(parts)
+
+
+func _validate_difficulty_curve(summaries: Array) -> PackedStringArray:
+	var failures := PackedStringArray()
+	var exact_summaries: Array = []
+	for summary in summaries:
+		if bool(summary.get("aborted", false)) or bool(summary.get("approx", false)):
+			continue
+		exact_summaries.append(summary)
+		var level_id := str(summary["id"])
+		var random_failure := float(summary["strat"][0]["p_dead"]) * 100.0
+		var band: Vector2 = RANDOM_FAILURE_BANDS[level_id]
+		if random_failure < band.x - 0.05 or random_failure > band.y + 0.05:
+			failures.append(
+				"%s 随机失败率 %.1f%% 不在 %.0f%%～%.0f%% 目标带"
+				% [level_id, random_failure, band.x, band.y]
+			)
+		if int(summary["global_index"]) <= 3:
+			if int(summary["future_risk_cnt"]) != 0 or int(summary["immediate_trap_cnt"]) != 0:
+				failures.append("%s 教学流程仍包含隐藏致死分支" % level_id)
+			if int(summary["initial_fatal_actions"]) != 0:
+				failures.append("%s 开局仍包含一步致死动作" % level_id)
+	exact_summaries.sort_custom(
+		func(a, b) -> bool: return int(a["global_index"]) < int(b["global_index"])
+	)
+	for index in range(1, exact_summaries.size()):
+		var previous: Dictionary = exact_summaries[index - 1]
+		var current: Dictionary = exact_summaries[index]
+		var previous_global := int(previous["global_index"])
+		var current_global := int(current["global_index"])
+		if current_global != previous_global + 1:
+			continue
+		if (previous_global - 1) / 10 != (current_global - 1) / 10:
+			continue
+		var previous_failure := float(previous["strat"][0]["p_dead"]) * 100.0
+		var current_failure := float(current["strat"][0]["p_dead"]) * 100.0
+		if absf(current_failure - previous_failure) > MAX_ADJACENT_RANDOM_FAILURE_JUMP:
+			failures.append(
+				"%s→%s 随机失败率跳变 %.1f 个百分点"
+				% [previous["id"], current["id"], absf(current_failure - previous_failure)]
+			)
+	return failures
 
 
 # ------------------------------------------------------------------ 枚举工具

@@ -1,6 +1,8 @@
 extends RefCounted
 class_name MigrationBoardModel
 
+const StrategySolver = preload("res://src/model/strategy_solver.gd")
+
 enum Terrain {
 	NUMBER,
 	ROAD,
@@ -10,6 +12,7 @@ enum Terrain {
 }
 
 const TARGET_SUM := 24
+const RECOVERY_STATE_CAP := 24000
 const DIRECTIONS: Array[Vector2i] = [
 	Vector2i.LEFT,
 	Vector2i.RIGHT,
@@ -377,7 +380,9 @@ func reshuffle_frontier_for_valid_path() -> bool:
 				for index in chain.size():
 					numbers[index_of(chain[index])] = int(values[index])
 				if path_is_valid(chain):
-					return true
+					var recovery := StrategySolver.find_solution(self, RECOVERY_STATE_CAP)
+					if bool(recovery["solved"]):
+						return true
 				for index in chain.size():
 					numbers[index_of(chain[index])] = previous_values[index]
 	return false

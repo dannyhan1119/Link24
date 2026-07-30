@@ -263,7 +263,7 @@ static func _chapter_one_specs() -> Array[Dictionary]:
 			"index": 1,
 			"name": "第 1 关 · 初次开路",
 			"lesson": "从蓝点数字开始，连接相邻数字凑成 24",
-			"seed": 3,
+			"seed": 73,
 			"start": Vector2i(0, 11),
 			"goal": Vector2i(6, -1),
 			"tutorial": true,
@@ -284,7 +284,7 @@ static func _chapter_one_specs() -> Array[Dictionary]:
 			"index": 2,
 			"name": "第 2 关 · 道路相邻",
 			"lesson": "每段新路都要从已经连通的道路边缘出发",
-			"seed": 5,
+			"seed": 25,
 			"start": Vector2i(1, 11),
 			"goal": Vector2i(1, -1),
 			"paths": [
@@ -303,7 +303,7 @@ static func _chapter_one_specs() -> Array[Dictionary]:
 			"index": 3,
 			"name": "第 3 关 · 绕过岩石",
 			"lesson": "路径可以转弯，但不能穿过岩石",
-			"seed": 7,
+			"seed": 65,
 			"start": Vector2i(6, 11),
 			"goal": Vector2i(2, -1),
 			"paths": [
@@ -323,7 +323,7 @@ static func _chapter_one_specs() -> Array[Dictionary]:
 			"index": 4,
 			"name": "第 4 关 · 拖回修正",
 			"lesson": "选错数字时，拖回上一格即可撤销末段",
-			"seed": 9,
+			"seed": 74,
 			"start": Vector2i(0, 11),
 			"goal": Vector2i(7, -1),
 			"paths": [
@@ -343,7 +343,7 @@ static func _chapter_one_specs() -> Array[Dictionary]:
 			"index": 5,
 			"name": "第 5 关 · 两种选择",
 			"lesson": "道路边缘可能同时出现多条合法的 24 路径",
-			"seed": 11,
+			"seed": 26,
 			"start": Vector2i(0, 11),
 			"goal": Vector2i(6, -1),
 			"paths": [
@@ -365,7 +365,7 @@ static func _chapter_one_specs() -> Array[Dictionary]:
 			"index": 6,
 			"name": "第 6 关 · 长路效率",
 			"lesson": "较长的 24 路径能用同一天开出更多道路",
-			"seed": 13,
+			"seed": 39,
 			"start": Vector2i(0, 11),
 			"goal": Vector2i(7, -1),
 			"paths": [
@@ -384,7 +384,7 @@ static func _chapter_one_specs() -> Array[Dictionary]:
 			"index": 7,
 			"name": "第 7 关 · 返回岔路",
 			"lesson": "可以从旧道路的任意前沿继续开路",
-			"seed": 15,
+			"seed": 78,
 			"start": Vector2i(7, 11),
 			"goal": Vector2i(1, -1),
 			"paths": [
@@ -407,7 +407,7 @@ static func _chapter_one_specs() -> Array[Dictionary]:
 			"index": 8,
 			"name": "第 8 关 · 绕路取舍",
 			"lesson": "偏离主路会增加迁徙日，但也能探索更多区域",
-			"seed": 17,
+			"seed": 76,
 			"start": Vector2i(3, 11),
 			"goal": Vector2i(5, -1),
 			"fog_radius": 2,
@@ -434,7 +434,7 @@ static func _chapter_one_specs() -> Array[Dictionary]:
 			"index": 9,
 			"name": "第 9 关 · 水塘补给",
 			"lesson": "先连接蓝色水塘完成补给，再打开通往绿洲的出口",
-			"seed": 19,
+			"seed": 60,
 			"start": Vector2i(6, 11),
 			"goal": Vector2i(3, -1),
 			"fog_radius": 2,
@@ -459,7 +459,7 @@ static func _chapter_one_specs() -> Array[Dictionary]:
 			"index": 10,
 			"name": "第 10 关 · 综合迁徙",
 			"lesson": "综合使用长路径、转弯、分支与出口判断",
-			"seed": 23,
+			"seed": 165,
 			"start": Vector2i(0, 11),
 			"goal": Vector2i(4, -1),
 			"fog_radius": 2,
@@ -493,7 +493,7 @@ static func _chapter_two_specs() -> Array[Dictionary]:
 			"index": 1,
 			"name": "第 11 关 · 沙丘瞭望",
 			"lesson": "绕路点亮瞭望塔，大片薄雾会从高处散开",
-			"seed": 41,
+			"seed": 92,
 			"start": Vector2i(1, 11),
 			"goal": Vector2i(6, -1),
 			"fog_radius": 2,
@@ -518,7 +518,7 @@ static func _chapter_two_specs() -> Array[Dictionary]:
 			"index": 2,
 			"name": "第 12 关 · 高处来风",
 			"lesson": "比较直达与瞭望绕路，用视野换取更稳的规划",
-			"seed": 47,
+			"seed": 68,
 			"start": Vector2i(6, 11),
 			"goal": Vector2i(1, -1),
 			"fog_radius": 2,
@@ -543,7 +543,7 @@ static func _chapter_two_specs() -> Array[Dictionary]:
 			"index": 3,
 			"name": "第 13 关 · 水源与远景",
 			"lesson": "水塘决定出口，瞭望塔决定你能提前看到多远",
-			"seed": 53,
+			"seed": 113,
 			"start": Vector2i(0, 11),
 			"goal": Vector2i(4, -1),
 			"fog_radius": 2,
@@ -569,7 +569,7 @@ static func _chapter_two_specs() -> Array[Dictionary]:
 			"index": 4,
 			"name": "第 14 关 · 回望旧路",
 			"lesson": "从旧道路折返瞭望点，再回到更有价值的前沿",
-			"seed": 59,
+			"seed": 151,
 			"start": Vector2i(7, 11),
 			"goal": Vector2i(2, -1),
 			"fog_radius": 2,
@@ -595,7 +595,7 @@ static func _chapter_two_specs() -> Array[Dictionary]:
 			"index": 5,
 			"name": "第 15 关 · 双向取舍",
 			"lesson": "伙伴与瞭望塔分居两侧，选择值得付出的迁徙日",
-			"seed": 61,
+			"seed": 1,
 			"start": Vector2i(3, 11),
 			"goal": Vector2i(7, -1),
 			"fog_radius": 2,
@@ -623,7 +623,7 @@ static func _chapter_two_specs() -> Array[Dictionary]:
 			"index": 6,
 			"name": "第 16 关 · 长路穿沙",
 			"lesson": "连续长路径快速推进，瞭望绕路提供全局判断",
-			"seed": 67,
+			"seed": 3,
 			"start": Vector2i(0, 11),
 			"goal": Vector2i(5, -1),
 			"fog_radius": 2,
@@ -647,7 +647,7 @@ static func _chapter_two_specs() -> Array[Dictionary]:
 			"index": 7,
 			"name": "第 17 关 · 深雾救援",
 			"lesson": "用瞭望视野定位伙伴，再从旧前沿展开救援",
-			"seed": 71,
+			"seed": 12,
 			"start": Vector2i(7, 11),
 			"goal": Vector2i(0, -1),
 			"fog_radius": 1,
@@ -676,7 +676,7 @@ static func _chapter_two_specs() -> Array[Dictionary]:
 			"index": 8,
 			"name": "第 18 关 · 水塘之后",
 			"lesson": "先完成补给，再决定是否为远景多走一天",
-			"seed": 73,
+			"seed": 132,
 			"start": Vector2i(2, 11),
 			"goal": Vector2i(6, -1),
 			"fog_radius": 2,
@@ -702,7 +702,7 @@ static func _chapter_two_specs() -> Array[Dictionary]:
 			"index": 9,
 			"name": "第 19 关 · 两座营地",
 			"lesson": "在多个旧前沿间切换，兼顾瞭望与掉队伙伴",
-			"seed": 79,
+			"seed": 83,
 			"start": Vector2i(5, 11),
 			"goal": Vector2i(3, -1),
 			"fog_radius": 2,
@@ -760,22 +760,16 @@ static func _chapter_two_specs() -> Array[Dictionary]:
 
 
 static func _make_stuck_level() -> Dictionary:
-	var data := _make_base("内部测试 · 无路恢复", 29, DEFAULT_WIDTH, DEFAULT_HEIGHT)
-	var start := Vector2i(0, 11)
-	var goal := Vector2i(6, -1)
-	_set_terrain(data, start, BoardModel.Terrain.START)
-	_set_number(data, Vector2i(0, 10), 5)
-	_set_number(data, Vector2i(1, 10), 6)
-	_set_number(data, Vector2i(2, 10), 7)
-	for obstacle in [
-		Vector2i(0, 9),
-		Vector2i(1, 9),
-		Vector2i(1, 11),
-		Vector2i(2, 9),
-		Vector2i(2, 11),
-		Vector2i(3, 10),
-	]:
-		_set_terrain(data, obstacle, BoardModel.Terrain.BLOCKED)
+	# Reuse a complete authored route, then deliberately break only its opening
+	# values. Recovery must restore a path that can reach the oasis, not merely
+	# create one legal move inside an otherwise impossible test enclosure.
+	var spec: Dictionary = _chapter_one_specs()[0].duplicate(true)
+	spec["name"] = "内部测试 · 无路恢复"
+	var data := _make_chapter_level(spec, "internal", 0, 0)
+	var opening: Array = data["intended_paths"][0]
+	var broken_values := [5, 6, 7]
+	for index in opening.size():
+		_set_number(data, opening[index], broken_values[index])
 	data["chapter"] = 0
 	data["chapter_id"] = "internal"
 	data["id"] = "internal_stuck"
@@ -784,9 +778,6 @@ static func _make_stuck_level() -> Dictionary:
 	data["lesson"] = "验证开局死路检测与恢复操作"
 	data["recommended_days"] = 0
 	data["optimal_days"] = 0
-	data["start"] = start
-	data["goal"] = goal
-	data["intended_paths"] = []
 	data["branch_paths"] = []
 	data["branch_path"] = []
 	data["partner_cells"] = []

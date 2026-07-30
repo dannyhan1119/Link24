@@ -3,6 +3,7 @@ extends SceneTree
 const MapViewScene = preload("res://src/ui/map_view.gd")
 const LevelCatalog = preload("res://src/model/level_catalog.gd")
 const BoardModel = preload("res://src/model/board_model.gd")
+const StrategySolver = preload("res://src/model/strategy_solver.gd")
 
 var failures: Array[String] = []
 var assertions := 0
@@ -27,6 +28,12 @@ func _initialize() -> void:
 	map_view.show_hint()
 	_expect(map_view.hint_stage == 3, "third hint reaches the complete-answer tier")
 	_expect(map_view.hint_path.size() >= 2, "complete hint retains a usable path")
+	var hinted_state := map_view.board.duplicate_state()
+	_expect(hinted_state.apply_path(map_view.hint_path), "complete hint is currently legal")
+	_expect(
+		bool(StrategySolver.find_solution(hinted_state)["solved"]),
+		"complete hint keeps a globally verified route to the oasis"
+	)
 	var desert_rects := map_view._desert_background_rects()
 	_expect(desert_rects.size() == 3, "desert art extends above and below the board")
 	_expect(desert_rects[0].end.y == desert_rects[1].position.y, "upper desert art meets the board")
@@ -115,6 +122,10 @@ func _initialize() -> void:
 	map_view.reshuffle_dead_end_frontier()
 	_expect(not map_view.dead_end, "frontier reshuffle clears the dead-end state")
 	_expect(map_view.board.has_valid_path(), "frontier reshuffle creates a playable move")
+	_expect(
+		bool(StrategySolver.find_solution(map_view.board)["solved"]),
+		"frontier reshuffle creates a complete route, not just one local move"
+	)
 
 	map_view.load_level(playable[7])
 	_expect(map_view.board.total_partners() == 1, "level eight contains one optional partner")
