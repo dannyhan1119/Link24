@@ -7,6 +7,10 @@
 [![Assets: CC BY 4.0](https://img.shields.io/badge/assets-CC%20BY%204.0-lightgrey.svg)](ASSETS_LICENSE.md)
 
 <p align="center">
+  <a href="https://dannyhan1119.github.io/Link24/"><strong>🎮 在线试玩 / Play Online</strong></a>
+</p>
+
+<p align="center">
   <img src="docs/design/link24-migration-ui-concept-v1.png" alt="Link24 绿洲迁徙界面预览" width="720">
   <br>
   <sub>当前美术方向概念图</sub>
