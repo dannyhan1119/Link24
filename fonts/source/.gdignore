@@ -1,0 +1,2 @@
+# Font sources in this directory are only inputs for tools/subset_ui_font.sh.
+# Godot should import and export the generated subset in the parent directory.

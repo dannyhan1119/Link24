@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dawmgynk1ouh1"
-path="res://.godot/imported/sandstone_tile_v1.png-789a139fb4cb191d3ff3a06973818692.ctex"
+uid="uid://c6obhmgd0oyxt"
+path="res://.godot/imported/app_icon.png-6f88f9657057e305fc537c873c1279bb.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/tiles/sandstone_tile_v1.png"
-dest_files=["res://.godot/imported/sandstone_tile_v1.png-789a139fb4cb191d3ff3a06973818692.ctex"]
+source_file="res://art/ui/app_icon.png"
+dest_files=["res://.godot/imported/app_icon.png-6f88f9657057e305fc537c873c1279bb.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.85
+compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
@@ -36,5 +36,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=256
+process/size_limit=0
 detect_3d/compress_to=1
