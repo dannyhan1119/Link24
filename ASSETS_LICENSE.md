@@ -13,3 +13,9 @@ Suggested attribution:
 > Link24: Oasis Migration assets by Danny Han, licensed under CC BY 4.0.
 
 Full license text: https://creativecommons.org/licenses/by/4.0/legalcode
+
+## Bundled font
+
+`fonts/NotoSansCJKsc-Regular.otf` is Noto Sans CJK SC by Google and Adobe,
+distributed under the SIL Open Font License 1.1. The complete font license is
+included at [`fonts/OFL-1.1.txt`](fonts/OFL-1.1.txt).

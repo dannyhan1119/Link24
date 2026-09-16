@@ -10,6 +10,7 @@ const TEXTURE_OASIS: Texture2D = preload("res://art/destination/destination_oasi
 const BUTTON_RESET: Texture2D = preload("res://art/ui/button_reset_v1.png")
 const BUTTON_COMPASS: Texture2D = preload("res://art/ui/button_compass_v1.png")
 const BUTTON_PARTY: Texture2D = preload("res://art/ui/button_party_v1.png")
+const UI_FONT: Font = preload("res://fonts/NotoSansCJKsc-Regular.otf")
 
 const COLOR_BACKGROUND := Color("#EDF9FC")
 const COLOR_PANEL := Color("#FFFFFF")
@@ -919,7 +920,7 @@ func _draw_panel(
 
 func _draw_centered_text(text: String, center: Vector2, font_size: int, color: Color) -> void:
 	text = Localization.text(text)
-	var font := ThemeDB.fallback_font
+	var font := UI_FONT
 	var text_width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 	draw_string(
 		font,

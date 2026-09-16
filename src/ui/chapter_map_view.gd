@@ -13,6 +13,7 @@ const TEXTURE_ANIMALS: Texture2D = preload("res://art/characters/migration_party
 const TEXTURE_DESERT: Texture2D = preload("res://art/environment/desert_map_base_v1.png")
 const TEXTURE_ROCKS: Texture2D = preload("res://art/obstacles/rock_cluster_low_v1.png")
 const TEXTURE_CACTUS: Texture2D = preload("res://art/obstacles/cactus_cluster_v1.png")
+const UI_FONT: Font = preload("res://fonts/NotoSansCJKsc-Regular.otf")
 
 const COLOR_SKY := Color("#EAF9FC")
 const COLOR_TEXT := Color("#173954")
@@ -629,7 +630,7 @@ func _draw_rounded_rect(
 
 func _draw_centered_text(text: String, center: Vector2, font_size: int, color: Color) -> void:
 	text = Localization.text(text)
-	var font := ThemeDB.fallback_font
+	var font := UI_FONT
 	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 	draw_string(
 		font,

@@ -11,6 +11,7 @@ on:
       - src/**
       - art/**
       - audio/**
+      - fonts/**
       - .github/workflows/deploy-pages.yml
   workflow_dispatch:
 
