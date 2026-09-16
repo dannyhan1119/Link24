@@ -7,7 +7,7 @@
 [![Assets: CC BY 4.0](https://img.shields.io/badge/assets-CC%20BY%204.0-lightgrey.svg)](ASSETS_LICENSE.md)
 
 <p align="center">
-  <a href="https://dannyhan1119.github.io/Link24/"><strong>🎮 在线试玩 / Play Online</strong></a>
+  <a href="https://dannykkg.github.io/Link24/"><strong>🎮 在线试玩 / Play Online</strong></a>
 </p>
 
 <p align="center">
