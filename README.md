@@ -12,9 +12,11 @@
   <sub>当前美术方向概念图</sub>
 </p>
 
-<p align="center">
-  <a href="https://x.com/dannykkg/status/2100095128941871322/video/1"><strong>▶ 在 X 上观看 29 秒实机演示</strong></a>
-</p>
+### 29 秒实机演示
+
+https://github.com/user-attachments/assets/5b004995-bb63-454e-b0d6-86cfe4538d7f
+
+视频也发布在 [X / @dannykkg](https://x.com/dannykkg/status/2100095128941871322/video/1)。
 
 ## 这是一款什么游戏？
 
