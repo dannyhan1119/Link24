@@ -1,7 +1,6 @@
 # Link24：绿洲迁徙
 
-Godot 4.7 多章节开发原型：连接相邻数字凑成 24，将数字格转换成道路，
-带领动物队伍穿过唯一出口抵达棋盘外的目标绿洲。当前包含两章、共 20 个故事关。
+> 凑成 24，开出道路，带小动物走到下一片绿洲。
 
 [![Godot Engine](https://img.shields.io/badge/Godot-4.7-478CBF?logo=godot-engine&logoColor=white)](https://godotengine.org/)
 [![License: MIT](https://img.shields.io/badge/code-MIT-green.svg)](LICENSE)
@@ -9,244 +8,211 @@ Godot 4.7 多章节开发原型：连接相邻数字凑成 24，将数字格转�
 
 <p align="center">
   <img src="docs/design/link24-migration-ui-concept-v1.png" alt="Link24 绿洲迁徙界面预览" width="720">
+  <br>
+  <sub>当前美术方向概念图</sub>
 </p>
 
-## 特色
+## 这是一款什么游戏？
 
-- 数字解谜与地图探索结合：每次凑成 24 都会永久铺出一段道路。
-- 两个独立章节、20 个手工关卡，包含薄雾、补给点、瞭望点和可选支路。
-- 精确求解器校验最优天数、难度曲线、死局恢复和提示安全性。
-- 移动端友好，支持中英文、声音、震动、减少动态与进度保存。
+`Link24：绿洲迁徙` 是一款竖屏数字路径解谜游戏。
 
-## 运行
+旱季到来，一支由狮子、幼象和长颈鹿组成的小队准备离开逐渐干涸的绿洲。他们的前方是沙地、岩石和云雾，脚下没有现成的路。
 
-使用 Godot 打开本目录，或执行：
+玩家需要从绿洲边缘出发，连接相邻数字，让路径之和恰好等于 **24**。成功的数字格会翻转成草地道路，动物们沿着新路前进，雾气随之散开。当一段段“24”最终连通棋盘外的新绿洲，这场迁徙才真正完成。
+
+## 怎么玩
+
+1. 从已经连通的道路边缘开始。
+2. 拖动连接上下左右相邻的数字。
+3. 路径总和恰好等于 24 时松手，沙地就会长出新路。
+4. 在分岔、障碍和薄雾中规划下一段路，直到队伍抵达终点。
+
+连线未达到 24 不会消耗步数，拖回上一格即可修正。游戏不设倒计时，也不会用随机失败惩罚玩家；难度来自“眼前这条路能走，但它会把队伍带向哪里”。
+
+## 不只是 24 点
+
+### 每次解题都在改变地图
+
+正确答案不会消失，而会永久成为草地、花朵和队伍真正走过的路。通关后回看地图，能直接看到自己一步步留下的迁徙网络。
+
+### 路线比算式更重要
+
+同一时刻可能有多条路都能凑成 24，但更长的路能够一次开拓更多地格，支路可能藏着伙伴、水塘或瞭望点，看似直接的选择也可能让后续无路可走。
+
+### 探索与恢复
+
+雾中有迷路的居民、补给点和可选景观。获救动物会回到绿洲家园，通关成果会逐步恢复绿洲、解锁装饰。即使走入死局，也可以沿路撤回、请向导重整边界，或重新开始。
+
+### 轻松通关，也能追求效率
+
+故事线只要抵达绿洲就能继续。想要挑战的玩家则可以追求更少的“迁徙日”、不使用提示、救回伙伴并完成探索成果。
+
+## 两章、20 个手工关卡
+
+| 章节 | 主题 | 玩法进展 |
+| --- | --- | --- |
+| 第一章·绿洲边缘 | 学会开路 | 从第一段 24 路径开始，逐步引入岩石障碍、分岔、薄雾、伙伴救援和水塘补给。 |
+| 第二章·明亮沙丘 | 用绕路换视野 | 新增可选瞭望点：多花一天点亮高处，能够永久驱散大片薄雾，让后续路线更易规划。 |
+
+关卡采用固定布局，而不是临场随机生成。每关的唯一出口、主路、支路和特殊目标都经过完整求解验证，提示也只会指向已经证明能通关的选择。
+
+关卡细节见 [第一章](docs/CHAPTER_01.md)、[第二章](docs/CHAPTER_02.md) 和 [20 关策略深度报告](docs/STRATEGY_REPORT.md)。
+
+## 作为 Godot 学习 Demo
+
+Link24 不仅是一个可玩的解谜原型，也是一个“规则驱动、代码优先”的 Godot 2D 项目示例。它展示了如何把一套可测试的游戏规则，与触摸输入、自定义绘制、动画反馈、存档和关卡验证组合成一个完整循环。
+
+### 整体架构
+
+```mermaid
+flowchart TD
+    Scene["main.tscn<br/>Control 根节点"] --> Main["main.gd<br/>流程与 HUD 协调"]
+    Main --> Chapter["ChapterMapView<br/>章节地图 / 绿洲家园"]
+    Main --> Map["MapView<br/>输入 / 镜头 / 自定义绘制 / 反馈"]
+    Main --> Catalog["LevelCatalog<br/>章节与关卡数据"]
+    Main --> Stores["ProgressStore + SettingsStore<br/>ConfigFile 持久化"]
+    Map --> Board["BoardModel<br/>纯数据棋盘与规则"]
+    Map --> Solver["StrategySolver<br/>安全提示与可通关搜索"]
+    Catalog --> Board
+    Tests["Headless Tests<br/>模型 / 流程 / 存档 / 求解"] --> Board
+    Tests --> Stores
+    Tests --> Solver
+```
+
+| 层次 | 主要文件 | 职责与可学习点 |
+| --- | --- | --- |
+| 项目入口 | [`project.godot`](project.godot)、[`scenes/main.tscn`](scenes/main.tscn) | 设置 1080×1920 设计画布、竖屏与 `canvas_items` 拉伸策略；场景只保留一个全屏 `Control` 根节点。 |
+| 流程协调 | [`src/main.gd`](src/main.gd) | 动态创建子视图，连接信号，切换章节/关卡/暂停/结算状态，并把模型变化映射到 HUD。 |
+| 核心规则 | [`src/model/board_model.gd`](src/model/board_model.gd) | 不依赖具体 UI 节点的棋盘模型；负责相邻、求和、道路连通、特殊目标、通关与边界重整。 |
+| 游戏表现 | [`src/ui/map_view.gd`](src/ui/map_view.gd) | 使用 `_gui_input()` 处理鼠标和触摸，使用 `_draw()` 绘制棋盘、道路、雾、角色、提示与粒子，并用 `queue_redraw()` 驱动可确定的帧更新。 |
+| 章节界面 | [`src/ui/chapter_map_view.gd`](src/ui/chapter_map_view.gd) | 展示章节路线、解锁状态、恢复阶段和家园收集，通过信号把玩家选择交回主流程。 |
+| 数据与存档 | [`level_catalog.gd`](src/model/level_catalog.gd)、[`progress_store.gd`](src/model/progress_store.gd)、[`settings_store.gd`](src/model/settings_store.gd) | 用 `Dictionary`、类型化数组和 `Vector2i` 定义关卡；用 `ConfigFile` 写入 `user://`，并演示存档版本迁移。 |
+| 求解与测试 | [`strategy_solver.gd`](src/model/strategy_solver.gd)、[`tests/`](tests) | 用状态搜索找到可通关路线，并在 `--headless` 模式下测试规则、存档、UI 流程与多章节行为。 |
+
+### 一次开路如何流过项目
+
+1. `MigrationMapView._gui_input()` 把指针位置换算为 `Vector2i` 棋盘坐标。
+2. 选中路径交给 `MigrationBoardModel.path_is_valid()` 检查前沿、相邻、重复、障碍和总和。
+3. 总和为 24 时，`apply_path()` 只修改模型数据：数字格变成道路，特殊目标更新。
+4. `MapView` 根据变化前后的状态启动动物移动、草路生长、薄雾消散、声音和触觉反馈。
+5. 视图通过 `session_changed`、`objectives_changed` 和 `level_completed` 等信号通知 `main.gd`，主流程再刷新 HUD 或写入进度。
+
+### 建议阅读顺序
+
+1. 从 [`project.godot`](project.godot) 和 [`main.tscn`](scenes/main.tscn) 看项目如何启动。
+2. 阅读 [`board_model.gd`](src/model/board_model.gd) 的 `path_is_valid()` 与 `apply_path()`，先理解与 UI 无关的核心规则。
+3. 再跟踪 [`map_view.gd`](src/ui/map_view.gd) 中的 `_begin_pointer()` → `_update_selection_at()` → `_finish_pointer()` → `_commit_valid_path()`。
+4. 回到 [`main.gd`](src/main.gd) 查看信号连接、关卡切换、安全区缩放和存档协作。
+5. 最后阅读 [`test_board_model.gd`](tests/test_board_model.gd) 和 [`test_map_view_flow.gd`](tests/test_map_view_flow.gd)，看规则层与界面流程如何分别验证。
+
+> **学习提示：** 这个项目刻意使用了较多代码自绘界面，而不是在编辑器中拆出大量节点和场景。它很适合学习 `Control` 自定义绘制、输入坐标映射、状态分层和无界面测试；如果你正在学习 Godot 以场景组合为主的常规工作流，可以把它当作另一种“代码驱动”实现的对照案例。
+
+## 从“消掉数字”到“走出一条路”
+
+Link24 最初只是一个简单的手机数字消除原型：在网格中连接数字，凑成 24，然后它们消失。核心规则很清楚，但“算完了又如何”一直没有令人满意的答案。
+
+转折点是把“消除”改成“铺路”：数字不再只是要被清空的棋子，而是一块块等待被唤醒的沙地。24 点的计算、地图的探索和动物的前进因此变成了同一件事。
+
+| 阶段 | 变化 |
+| --- | --- |
+| 早期原型 | 确立“连接相邻数字，总和恰好为 24”的基础操作。 |
+| 迁徙改版 | 把消除格转化为永久道路，引入棋盘外绿洲、唯一出口和动物队伍。 |
+| 第一章 | 完成 10 个教学与故事关，补齐薄雾、补给、救援、撤回和死局恢复。 |
+| 多章节化 | 增加章节地图、稳定关卡 ID、跨章解锁、绿洲家园和第二章的瞭望点机制。 |
+| 精确验证 | 引入完整求解器，穷尽可达局面，校验最优迁徙日、一步陷阱、提示安全性和难度曲线。 |
+| 移动端打磨 | 加入 Android 导出、9:16 安全区、中英文、声音、震动和减少动态设置。 |
+
+<table>
+  <tr>
+    <th>早期的数字消除界面</th>
+    <th>现在的绿洲迁徙方向</th>
+  </tr>
+  <tr>
+    <td><img src="docs/design/link24-ui-concept-v1.png" alt="Link24 早期界面概念" width="360"></td>
+    <td><img src="docs/design/link24-migration-ui-concept-v1.png" alt="Link24 迁徙界面概念" width="360"></td>
+  </tr>
+</table>
+
+## 当前版本
+
+- 两个可连续游玩的章节，共 20 关。
+- 完整的进度保存、章节解锁、成果结算和绿洲家园。
+- 分级提示、最多 20 步撤回、死局检测与可通关重整。
+- 中英文界面，声音、震动与减少动态选项。
+- macOS 开发运行与 Android `arm64-v8a` 调试导出。
+
+这仍是一个持续开发中的作品：核心玩法与两章内容已经完整，美术、角色动画、地形变体和后续章节仍在逐步打磨。
+
+## 运行项目
+
+<details>
+<summary>桌面端运行</summary>
+
+使用 Godot 4.7 打开本目录，或在 macOS 中执行：
 
 ```sh
 /Applications/Godot_mono.app/Contents/MacOS/Godot --path .
 ```
 
-## Android APK 与真机调试
-
-本项目使用 Godot 4.7 Mono 的 Android Gradle 构建模板，目标架构为
-`arm64-v8a`，包名为 `com.link24.oasismigration`。本机默认使用 Android
-Studio 自带的 JDK 和 `~/Library/Android/sdk`。
-
-导出调试 APK：
-
-```sh
-./tools/export_android_debug.sh
-```
-
-产物位于 `build/android/Link24-debug.apk`。首次导出时，如果项目内还没有
-Gradle 构建模板，脚本会让 Godot 自动安装。
-
-手机用 USB 连接时，可一键构建、安装并启动：
-
-```sh
-./tools/run_android_debug.sh
-```
-
-Android 11 及以上推荐使用系统“开发者选项 > 无线调试”。手机会分别显示
-配对端口、配对码和调试端口：
-
-```sh
-./tools/android_device.sh pair 192.168.1.20:37123 123456
-./tools/android_device.sh connect 192.168.1.20:39517
-./tools/run_android_debug.sh 192.168.1.20:39517
-```
-
-也可以先用 USB 连接，再切换到传统的 ADB TCP 5555 模式：
-
-```sh
-./tools/android_device.sh usb-to-wifi
-./tools/android_device.sh devices
-./tools/run_android_debug.sh 192.168.1.20:5555
-```
-
-查看 Godot 与 Android 崩溃日志：
-
-```sh
-./tools/android_device.sh logs 设备序列号
-```
-
-电脑和手机需要处于可互通的同一网络。若存在多个 USB/无线设备，
-`run_android_debug.sh` 必须显式传入 `adb devices` 显示的设备序列号。
-
-## 操作
-
-- 在道路或空白背景上拖动：平移地图。
-- 从带青色前沿标记的数字格开始拖动：选择路径。
-- 拖回上一格：撤销路径最后一步。
-- 松手时总和等于 24：开通道路。
-- 松手时未达到 24：取消本次路径。
-- 首关会用局部气泡与脉冲圈引导第一次开路，不锁住其他操作。
-- 目标绿洲不在视野内时，点击屏幕边缘的小绿洲投影可直接查看目标。
-- 第 9 关需要先沿蓝色水塘指引完成补给，之后目标指引才会切换到绿洲出口。
-- 点击顶部关卡标题：返回当前章节迁徙地图。
-- 点击右上角暂停按钮：暂停当前关卡，打开声音、震动、减少动态和语言设置。
-- 暂停面板可继续游戏或返回章节地图；设置会自动保存。
-- 章节地图左上角“绿洲家园”可查看获救居民并选择已解锁装饰。
-- `1`～`9` / `0`：直接进入当前章节第 1～10 关。
-- `F3`：进入不出现在玩家列表中的内部死局测试图。
-- `R`：重置。
-- `U`：撤回最近一次成功开路，最多连续保留 20 步。
-- `H`：分级提示；依次显示可行动前沿、开路方向和完整路径。
-- `C`：镜头回到动物队伍。
-- `G`：查看棋盘外的目标绿洲。
-- `A`：开发专用，自动执行下一段预设合法路径。
-- `B`：开发专用，执行当前关卡的可选支路。
-
-开发时直接试玩第二章：
+开发时可直接预览第二章：
 
 ```sh
 /Applications/Godot_mono.app/Contents/MacOS/Godot \
   --path . -- --chapter=2 --play
 ```
 
-章节尚未通过正常流程解锁时，这个开发入口使用预览模式，不会写入正式进度。
+</details>
 
-## 第一章与内部测试图
+<details>
+<summary>Android 导出与真机调试</summary>
 
-- 第一章“绿洲边缘”包含 10 张可连续游玩的手工关卡。
-- 每关包含独立的起点、棋盘外终点、道路分段、障碍布局、教学主题和推荐迁徙日。
-- 求解器精确值作为“先锋”目标，故事推荐线在最优值上保留 1 个迁徙日容错。
-- 第 5、7、8、10 关包含可选支路，并验证绕路后仍能返回主干。
-- 第 9 关包含必须先完成的水塘补给目标，补给前出口保持锁定。
-- 第 10 关完成后进入独立的章节恢复页面，不再循环伪装成“下一关”。
-- 另保留一张无路恢复图，仅用于验证自动死局检测和恢复。
-
-## 第二章与多章节架构
-
-- 第二章“明亮沙丘”包含第 11～20 关，使用 10 张独立手工布局。
-- 本章专属瞭望点是可选绕路目标，抵达后会永久驱散大范围薄雾并计入探索成果。
-- 完成第一章第 10 关后自动解锁第二章。
-- 章节地图支持在已解锁章节之间切换。
-- 关卡使用 `c1_l01`、`c2_l01` 等稳定 ID，存档不再依赖数组下标。
-- 旧版第一章存档会自动迁移到当前 v4 进度、瞭望与家园格式。
-- 架构说明见 [多章节架构与第二章独立机制](docs/MULTI_CHAPTER_ARCHITECTURE.md)。
-- 第二章关卡说明见 [第二章：明亮沙丘](docs/CHAPTER_02.md)。
-
-## 自动测试
+项目使用 Godot 4.7 Mono Android Gradle 模板，目标架构为 `arm64-v8a`。
 
 ```sh
-/Applications/Godot_mono.app/Contents/MacOS/Godot \
-  --headless \
-  --path . \
-  --script res://tests/test_board_model.gd
-
-/Applications/Godot_mono.app/Contents/MacOS/Godot \
-  --headless \
-  --path . \
-  --script res://tests/test_map_view_flow.gd
-
-/Applications/Godot_mono.app/Contents/MacOS/Godot \
-  --headless \
-  --path . \
-  --script res://tests/test_progress_store.gd
-
-/Applications/Godot_mono.app/Contents/MacOS/Godot \
-  --headless \
-  --path . \
-  --script res://tests/test_chapter_map_flow.gd
-
-/Applications/Godot_mono.app/Contents/MacOS/Godot \
-  --headless \
-  --path . \
-  --script res://tests/test_multi_chapter_flow.gd
-
-/Applications/Godot_mono.app/Contents/MacOS/Godot \
-  --headless \
-  --path . \
-  --script res://tests/test_settings_store.gd
-
-/Applications/Godot_mono.app/Contents/MacOS/Godot \
-  --headless \
-  --path . \
-  --script res://tests/test_strategy_solver.gd
+./tools/export_android_debug.sh
+./tools/run_android_debug.sh
 ```
 
-评分标尺与全关卡精确最优解校验：
+导出产物位于 `build/android/Link24-debug.apk`。无线 ADB 与日志命令见 [`tools/android_device.sh`](tools/android_device.sh)。
+
+</details>
+
+<details>
+<summary>自动测试与关卡验证</summary>
+
+模型、界面、存档、多章节流程和策略求解器均有无界面测试。单项测试示例：
 
 ```sh
 /Applications/Godot_mono.app/Contents/MacOS/Godot \
-  --headless \
-  --path . \
+  --headless --path . --script res://tests/test_board_model.gd
+```
+
+全关卡最优解与策略深度校验：
+
+```sh
+/Applications/Godot_mono.app/Contents/MacOS/Godot \
+  --headless --path . \
   --script res://tools/solve_analysis.gd -- --validate
-```
 
-全可达状态、一步致死动作与难度曲线校验：
-
-```sh
 /Applications/Godot_mono.app/Contents/MacOS/Godot \
-  --headless \
-  --log-file /tmp/link24-strategy.log \
-  --path . \
+  --headless --log-file /tmp/link24-strategy.log --path . \
   --script res://tools/solve_strategy.gd -- --validate
 ```
 
-指标定义与当前 20 关精确结果见
-[20 关策略深度报告](docs/STRATEGY_REPORT.md)。
+</details>
 
-当前测试覆盖：
+## 延伸资料
 
-- 两章 20 关的每段预设路径总和为 24。
-- 路径必须从起点连通路网的前沿开始。
-- 道路路径应用。
-- 动物沿旧道路抵达新前沿。
-- 支路打开后返回主干。
-- 起点与终点连通。
-- 目标位于棋盘外，并且只对应一个棋盘边界出口。
-- 无可用路径检测。
-- 内部死局图从玩家关卡列表过滤。
-- 死局边界重整后必定产生一条合法的 24 路径。
-- 首关教学步骤会随开路和撤回正确前进、回退。
-- 开路动画会保留对应的原数字，并在撤回或播放完成后正确清理。
-- 通关结算只在动物真正抵达棋盘外绿洲后出现。
-- 结算镜头会展示目标绿洲，并可继续进入下一关。
-- 第 8 关可选支路会营救伙伴，撤回后伙伴状态正确恢复。
-- 第 8～10 关的薄雾不会遮挡当前可操作前沿。
-- 薄雾关卡开路后会记录新增可见区域，并在过渡结束后清理动画状态。
-- 动物移动时会循环使用站姿、左步和右步帧，停止或撤回后回到稳定站姿。
-- 二十个关卡实际覆盖三种障碍外观，同一格在重绘期间保持稳定变体。
-- 第 9 关水塘补给、出口解锁与撤回状态正确同步。
-- 分级提示依次披露前沿、方向和完整路径。
-- 分级提示只披露已经由完整通关搜索证明安全的路径。
-- 连续开路会保存最多 20 层撤回状态。
-- 死局重整后的棋盘不只存在下一步，还保留完整可通关序列。
-- 策略校验区分未来风险和一步致死动作，并固定验证 20 关难度目标带。
-- 每关三项成果、章节绿洲生机和四阶段恢复可正确推导。
-- 右上角暂停按钮打开真实暂停面板，设置可保存并同步到局内反馈。
-- 声音、震动、减少动态和中英语言设置均可独立切换。
-- 9:16 设计画布会在安全显示区域内等比居中，输入坐标同步回映。
-- 第二章 10 张路线不是第一章布局或其水平镜像，瞭望点视野与撤回状态有专项测试。
-- 获救动物会进入绿洲家园，生机解锁装饰，装饰选择可保存。
-- 精确求解校验会阻止最优天数、推荐线和关卡质量阈值回归。
-- 关卡完成、跨章解锁、最佳迁徙日和伙伴成果可保存并重新载入。
-- 第一章旧存档可迁移到当前稳定关卡 ID、瞭望与家园格式。
-- 章节地图会阻止进入锁定节点，并允许进入已解锁节点。
-- 章节地图会区分锁定、已解锁、当前和已完成状态，草路只延伸到已解锁节点。
-- 章节结算会进入下一已解锁章节，锁定章节的开发预览不会污染正式进度。
+想继续了解玩法取舍、项目架构和美术规范，可以从以下文档开始：
 
-## 当前开发状态
-
-已经完成核心玩法闭环、棋盘外绿洲、唯一出口和边缘目标投影，并接入正式沙漠、起点营地、动物队伍、砂岩数字块、草地道路、岩石障碍和目标绿洲资源。障碍现包含高岩堆、低矮花岩堆和仙人掌花丛三种外观，根据关卡与格子坐标稳定混用，同时保持相同的不可通过语义。沙漠纹理现在覆盖完整的上下平移范围，棋盘外绿洲不再落在纯色空白区；已开道路按完整外轮廓和草地表面分层合并绘制，形成连续的有机绿带，并用确定性的草叶与花朵打散重复感。HUD 已加入天空层、奶油色软阴影面板、正式软 3D 操作按钮、实时迁徙小地图和 24 点达成脉冲；按钮支持按压回弹与触觉反馈，薄雾改为低频漂移的连续云团，新区域揭开时云团会分批淡出、缩小并向外散开。动物队伍包含呼吸待机和“站姿—左步—站姿—右步”四拍行走循环，绿洲水面包含待机微动。开路时会按 30～40ms 的间隔逐格翻转砂岩块、保留旧数字、从下方长出草路，并补上尘土、光环和亮点反馈；最终迁徙路线会出现沿目标方向前进的流动高光。抵达后目标绿洲会播放扩散光环、叶片与闪光恢复效果，再显示“继续下一关”结算。开局及游戏中死局会自动暂停，以“队伍在沙丘中迷路”的叙事提供“沿路返回 / 请向导重整 / 返回营地”；提示和重整都必须由完整通关搜索证明安全。
-
-第一章与第二章共 20 关已经进入多章节目录，并完成跨章节解锁、章节导航和动态章节结算。章节地图已使用正式沙漠环境、草地迁徙路线、起终点绿洲、动物队伍与障碍资源；已解锁路线具有流动光点，当前节点具有呼吸高光，锁定路线保持雾化虚线。第二章已从镜像延伸重做为独立手工章节，以“瞭望点换取视野”为专属探索规则。章节成果会恢复绿洲、收集获救居民并解锁六档家园装饰。移动端现有安全区缩放、声音、震动、减少动态和中英语言设置。
-
-美术规范和当前资源清单见 [docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)。
-
-## 项目结构
-
-- `scenes/` 与 `src/`：Godot 场景、界面与核心逻辑。
-- `art/` 与 `audio/`：游戏美术、声效及生成源素材。
-- `tests/`：模型、界面、存档与多章节流程测试。
-- `tools/`：Android 调试脚本与关卡精确求解工具。
-- `docs/`：游戏设计、美术方向、关卡和技术架构文档。
+- [完整迁徙玩法规划](docs/GDD_MIGRATION.md)
+- [多章节架构](docs/MULTI_CHAPTER_ARCHITECTURE.md)
+- [美术方向与资源清单](docs/ART_DIRECTION.md)
+- [界面与交互规范](docs/UI_UX_SPEC.md)
 
 ## 参与贡献
 
-欢迎提交 Issue 与 Pull Request。开始前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，并尽量为行为变更补充对应的自动测试。
+欢迎提交玩法反馈、Bug 报告、关卡建议、可访问性改进、翻译和 Pull Request。开始前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 许可证
 
