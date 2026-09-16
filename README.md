@@ -12,6 +12,10 @@
   <sub>当前美术方向概念图</sub>
 </p>
 
+<p align="center">
+  <a href="https://x.com/dannykkg/status/2100095128941871322/video/1"><strong>▶ 在 X 上观看 29 秒实机演示</strong></a>
+</p>
+
 ## 这是一款什么游戏？
 
 `Link24：绿洲迁徙` 是一款竖屏数字路径解谜游戏。
